@@ -385,9 +385,11 @@ static void quickbar_screenshot_event_cb( lv_obj_t *obj, lv_event_t event ) {
     
     switch ( event ) {
         case ( LV_EVENT_CLICKED ):
+            if ( quickbar_task != NULL ) {
+                break;
+            }
             quickbar_hide( true );
             lv_disp_trig_activity( NULL );
-            lv_task_handler();
             quickbar_counter = 3;
             quickbar_task = lv_task_create( quickbar_counter_task, 1000, LV_TASK_PRIO_MID, NULL );
             break;
@@ -441,6 +443,7 @@ static void quickbar_counter_task( lv_task_t * task ) {
     if ( quickbar_counter == 0 ) {
         screenshot_take();
         screenshot_save();
-        lv_task_del( quickbar_task );
+        quickbar_task = NULL;
+        lv_task_del( task );
     }
 }

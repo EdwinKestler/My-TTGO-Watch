@@ -34,7 +34,8 @@ enum OptionDataType
 
 struct JsonOption {
     JsonOption(const char* optionName, OptionDataType type) {
-        strncpy(name, optionName, MAX_OPTION_NAME_LENGTH);
+        strncpy(name, optionName, MAX_OPTION_NAME_LENGTH - 1);
+        name[MAX_OPTION_NAME_LENGTH - 1] = '\0';
         optionDataType = type;
     }
     virtual ~JsonOption() {}
@@ -150,7 +151,8 @@ struct JsonStringOption : public JsonOption {
     virtual void applyFromUI() {
         if (isControlAssigned) {
             String currentValue = control.text();
-            strncpy(value, currentValue.c_str(), maxLength);
+            strncpy(value, currentValue.c_str(), maxLength - 1);
+            value[maxLength - 1] = '\0';
             if (source != nullptr)
             *source = value;
         }
@@ -162,7 +164,8 @@ struct JsonStringOption : public JsonOption {
 
     virtual void load(JsonDocument& document) {
         if ( document.containsKey( name ) ) {
-            strncpy(value, document[name], maxLength);
+            strncpy(value, document[name] | "", maxLength - 1);
+            value[maxLength - 1] = '\0';
         }
         else {
             value[0] = '\0';
@@ -205,7 +208,7 @@ struct JsonStringOption : public JsonOption {
         control = sourceControl;
         control.text(value);
         // Set digits mode
-        sourceControl.digitsMode(true, filterDigitsList);
+        sourceControl.digitsMode(onlyDigits, filterDigitsList);
         return *this;
     }
 

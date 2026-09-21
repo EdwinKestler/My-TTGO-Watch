@@ -426,7 +426,10 @@ bool osm_map_update( osm_location_t *osm_location ) {
         osm_location->tiley_right_bottom_edge = osm_helper_tiley2lat( osm_location->tiley + 1, osm_location->zoom );
         osm_location->tilex_right_bottom_edge = osm_helper_tilex2long( osm_location->tilex + 1, osm_location->zoom );
         osm_location->tiley_res = abs( osm_helper_tiley2lat( osm_location->tiley, osm_location->zoom ) - osm_helper_tiley2lat( osm_location->tiley + 1, osm_location->zoom ) );
-        osm_location->tilex_res = abs( osm_helper_tiley2lat( osm_location->tilex, osm_location->zoom ) - osm_helper_tiley2lat( osm_location->tilex + 1, osm_location->zoom ) );
+        {
+            float tilex_delta = osm_helper_tilex2long( osm_location->tilex, osm_location->zoom ) - osm_helper_tilex2long( osm_location->tilex + 1, osm_location->zoom );
+            osm_location->tilex_res = tilex_delta < 0 ? -tilex_delta : tilex_delta;
+        }
         osm_location->tiley_px_res = osm_location->tiley_res / osm_location->tiley_dest_px_res;
         osm_location->tilex_px_res = osm_location->tilex_res / osm_location->tilex_dest_px_res;
         OSM_MAP_LOG("left/top: %f / %f", osm_location->tiley_left_top_edge, osm_location->tilex_left_top_edge );
@@ -438,9 +441,14 @@ bool osm_map_update( osm_location_t *osm_location ) {
      * check if current lon/lat on tile
      */
     if ( osm_location->tiley == osm_helper_lat2tiley( osm_location->lat, osm_location->zoom ) && osm_location->tilex == osm_helper_long2tilex( osm_location->lon, osm_location->zoom ) ) {
-        osm_location->tilexy_pos_valid = true;
-        osm_location->tiley_pos = abs( osm_location->tiley_left_top_edge - osm_location->lat ) / osm_location->tiley_px_res;
-        osm_location->tilex_pos = abs( osm_location->tilex_left_top_edge - osm_location->lon ) / osm_location->tilex_px_res;
+        if ( osm_location->tiley_px_res == 0 || osm_location->tilex_px_res == 0 ) {
+            osm_location->tilexy_pos_valid = false;
+        }
+        else {
+            osm_location->tilexy_pos_valid = true;
+            osm_location->tiley_pos = abs( osm_location->tiley_left_top_edge - osm_location->lat ) / osm_location->tiley_px_res;
+            osm_location->tilex_pos = abs( osm_location->tilex_left_top_edge - osm_location->lon ) / osm_location->tilex_px_res;
+        }
         OSM_MAP_LOG("current lon/lat is in view");
     }
     else {
@@ -486,7 +494,6 @@ osm_location_t *osm_map_update_tile_image( osm_location_t *osm_location ) {
          */
         osm_location->osm_map_data.data = uri_load_dsc->data;
         osm_location->osm_map_data.data_size = uri_load_dsc->size;
-        lv_img_cache_invalidate_src( &osm_location->osm_map_data );
     }
     else {
         /**
@@ -494,7 +501,6 @@ osm_location_t *osm_map_update_tile_image( osm_location_t *osm_location ) {
          */
         osm_location->osm_map_data.data = osm_no_data_256px.data;
         osm_location->osm_map_data.data_size = osm_no_data_256px.data_size;
-        lv_img_cache_invalidate_src( &osm_location->osm_map_data );
     }
     /**
      * leave critical section
@@ -739,17 +745,30 @@ uri_load_dsc_t *osm_map_get_cache_tile_image( osm_location_t *osm_location ) {
              * search the oldest one
              */
             for( int i = 0 ; i < DEFAULT_OSM_CACHE_SIZE ; i++ ) {
-                if ( osm_location->uri_load_dsc[ i ]->timestamp <= timestamp && osm_location->uri_load_dsc[ i ] ) {
+                if ( osm_location->uri_load_dsc[ i ] == NULL ) {
+                    continue;
+                }
+                if ( osm_location->osm_map_data.data != NULL && osm_location->uri_load_dsc[ i ]->data == osm_location->osm_map_data.data ) {
+                    continue;
+                }
+                if ( osm_location->uri_load_dsc[ i ]->timestamp <= timestamp ) {
                     timestamp = osm_location->uri_load_dsc[ i ]->timestamp;
                     tile = i;
                 }
             }
             /**
-             * delete the oldest one
+             * delete the oldest one that is not on screen
              */
-            OSM_MAP_LOG("cache full, delete the oldest: %s", osm_location->uri_load_dsc[ tile ]->uri );
-            uri_load_free_all( osm_location->uri_load_dsc[ tile ] );
-            osm_location->uri_load_dsc[ tile ] = NULL;
+            if ( tile != (size_t)-1 && osm_location->uri_load_dsc[ tile ] != NULL && osm_location->uri_load_dsc[ tile ]->data != osm_location->osm_map_data.data ) {
+                OSM_MAP_LOG("cache full, delete the oldest: %s", osm_location->uri_load_dsc[ tile ]->uri );
+                uri_load_free_all( osm_location->uri_load_dsc[ tile ] );
+                osm_location->uri_load_dsc[ tile ] = NULL;
+            }
+        }
+        if ( tile == (size_t)-1 ) {
+            uri_load_free_all( uri_load_dsc );
+            osm_map_give( osm_location );
+            return( NULL );
         }
         osm_location->uri_load_dsc[ tile ] = uri_load_dsc;
 #ifdef NATIVE_64BIT

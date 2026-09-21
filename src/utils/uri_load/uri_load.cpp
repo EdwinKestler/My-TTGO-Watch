@@ -387,7 +387,14 @@ uri_load_dsc_t *uri_load_http_to_ram( uri_load_dsc_t *uri_load_dsc ) {
             /**
              * get file size and alloc memory for the file
              */
-            uri_load_dsc->size = download_client.getSize();
+            int download_size = download_client.getSize();
+            if ( download_size < 0 ) {
+                URI_LOAD_ERROR_LOG("missing content-length");
+                download_client.end();
+                uri_load_free_all( uri_load_dsc );
+                return( NULL );
+            }
+            uri_load_dsc->size = download_size;
             uri_load_dsc->data = (uint8_t*)CALLOC( 1, uri_load_dsc->size + 1 );
             URI_LOAD_LOG("uri_load_dsc->data: alloc %d bytes at %p", uri_load_dsc->size, uri_load_dsc->data );
             /**
@@ -415,6 +422,9 @@ uri_load_dsc_t *uri_load_http_to_ram( uri_load_dsc_t *uri_load_dsc ) {
                         if ( uri_load_dsc->progresscb ) {
                             uri_load_dsc->progresscb( ( 100 * ( uri_load_dsc->size - bytes_left ) ) / uri_load_dsc->size );
                         }
+                    }
+                    else {
+                        delay( 1 );
                     }
                 }
                 if ( bytes_left != 0 ) {
@@ -603,7 +613,17 @@ uri_load_dsc_t *uri_load_https_to_ram( uri_load_dsc_t *uri_load_dsc ) {
             /**
              * get file size and alloc memory for the file
              */
-            uri_load_dsc->size = download_client.getSize();
+            int download_size = download_client.getSize();
+            if ( download_size < 0 ) {
+                URI_LOAD_ERROR_LOG("missing content-length");
+                download_client.end();
+                client->stop();
+                delete client;
+                heap_caps_malloc_extmem_enable( 16 * 1024 );
+                uri_load_free_all( uri_load_dsc );
+                return( NULL );
+            }
+            uri_load_dsc->size = download_size;
             uri_load_dsc->data = (uint8_t*)CALLOC( 1, uri_load_dsc->size + 1 );
             URI_LOAD_LOG("uri_load_dsc->data: alloc %d bytes at %p", uri_load_dsc->size, uri_load_dsc->data );
             /**
@@ -631,6 +651,9 @@ uri_load_dsc_t *uri_load_https_to_ram( uri_load_dsc_t *uri_load_dsc ) {
                         if ( uri_load_dsc->progresscb ) {
                             uri_load_dsc->progresscb( ( 100 * ( uri_load_dsc->size - bytes_left ) ) / uri_load_dsc->size );
                         }
+                    }
+                    else {
+                        delay( 1 );
                     }
                 }
                 if ( bytes_left != 0 ) {
@@ -701,6 +724,8 @@ uri_load_dsc_t *uri_load_https_to_ram( uri_load_dsc_t *uri_load_dsc ) {
                 uri_load_dsc = NULL;
                 URI_LOAD_ERROR_LOG("http connection abort, code: %d", httpCode );
             }
+            delete client;
+            heap_caps_malloc_extmem_enable( 16 * 1024 );
             return( uri_load_dsc );
         }
         /**
@@ -708,6 +733,7 @@ uri_load_dsc_t *uri_load_https_to_ram( uri_load_dsc_t *uri_load_dsc ) {
          */
         download_client.end();
         client->stop();
+        delete client;
         heap_caps_malloc_extmem_enable( 16 * 1024 );
     }
     else {

@@ -226,6 +226,9 @@ static bool tracker_app_main_gps_event_cb( EventBits_t event, void *arg ) {
             counter = 0;
             break;
         case GPSCTL_DISABLE:
+            if ( tracker_logging_state ) {
+                tracker_app_main_logging( false, NULL );
+            }
             tracker_logging_gps_state = false;
             tracker_logging_state = false;
             lv_obj_set_style_local_line_color( tracker_progress_arc, LV_ARC_PART_INDIC, LV_STATE_DEFAULT, LV_COLOR_RED );
@@ -287,6 +290,8 @@ const char *tracker_app_main_logging( bool start, gps_data_t *gps_data ) {
     struct tm info;
     time( &now );
     localtime_r( &now, &info );
+    struct tm utcinfo;
+    gmtime_r( &now, &utcinfo );
 
     if( start ) {
         if( !logging ) {
@@ -313,7 +318,6 @@ const char *tracker_app_main_logging( bool start, gps_data_t *gps_data ) {
                 /**
                  * write gpx file header ...
                  */
-                size_t size = 0;
                 size += fprintf( fp, GPX_HEADER );
                 size += fprintf( fp, GPX_START );
                 size += fprintf( fp, GPX_METADATA );
@@ -342,7 +346,7 @@ const char *tracker_app_main_logging( bool start, gps_data_t *gps_data ) {
                  * write tracking pointer
                  */
                 char timestamp[ 128 ];
-                strftime( timestamp, 128, GPX_TRACK_SEGMENT_POINT_TIME_SRF, &info );
+                strftime( timestamp, 128, GPX_TRACK_SEGMENT_POINT_TIME_SRF, &utcinfo );
                 size += fprintf( fp, GPX_TRACK_SEGMENT_POINT_START, gps_data->lat, gps_data->lon );
                 size += fprintf( fp, GPX_TRACK_SEGMENT_POINT_ELE, gps_data->altitude_meters );
                 size += fprintf( fp, GPX_TRACK_SEGMENT_POINT_TIME, timestamp );
@@ -359,6 +363,10 @@ const char *tracker_app_main_logging( bool start, gps_data_t *gps_data ) {
         }
     }
     else {
+        if ( filename == NULL ) {
+            logging = false;
+            return( "" );
+        }
         fp = fopen( filename, "at" );
         if( fp ) {
             /**
@@ -413,6 +421,7 @@ static void tracker_app_main_enter_location_cb( lv_obj_t * obj, lv_event_t event
                 }
                 else {
                     tracker_logging_state = false;
+                    tracker_app_main_logging( false, NULL );
                     gpsctl_off();
                     sdcard_block_unmounting( false );
                     gpsctl_set_enable_on_standby( tracker_gps_on_standby_state );

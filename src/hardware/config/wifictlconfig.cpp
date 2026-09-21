@@ -124,12 +124,21 @@ bool wifictl_config_t::onDefault( void ) {
             while(true);
         }
     }
+    if ( networklist_tried == NULL ) {
+        networklist_tried = ( wifictl_networklist* )CALLOC( sizeof( wifictl_networklist ) * NETWORKLIST_ENTRYS, 1 );
+        if( !networklist_tried ) {
+            log_e("wifictl_networklist_tried calloc faild");
+            while(true);
+        }
+    }
     /*
      * clean networklist
      */
     for ( int entry = 0 ; entry < NETWORKLIST_ENTRYS ; entry++ ) {
       networklist[ entry ].ssid[ 0 ] = '\0';
       networklist[ entry ].password[ 0 ] = '\0';
+      networklist_tried[ entry ].ssid[ 0 ] = '\0';
+      networklist_tried[ entry ].password[ 0 ] = '\0';
     }
 
     /*

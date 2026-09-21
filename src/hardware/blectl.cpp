@@ -33,6 +33,9 @@
 #include "utils/charbuffer.h"
 #include "utils/alloc.h"
 #include "utils/bluejsonrequest.h"
+#include "gui/gui.h"
+#include <stdlib.h>
+#include <string.h>
 
 #ifdef NATIVE_64BIT
     #include "utils/logging.h"
@@ -133,23 +136,28 @@ static bool blectl_powermgm_event_cb( EventBits_t event, void *arg );
             char pin[16]="";
             snprintf( pin, sizeof( pin ), "%06d", pass_key );
             log_d("BLECTL confirm PIN: %s", pin );
-
+            /*
+             * NimBLE calls this on the host task and will not wait for a touch.
+             * Show the number and accept it. The phone still asks the user to confirm.
+             */
+            blectl_set_event( BLECTL_PIN_AUTH );
+            blectl_send_event_cb( BLECTL_PIN_AUTH, (void *)pin );
             powermgm_resume_from_ISR();
 
-            return( false );
+            return( true );
         };
 
         void onAuthenticationComplete(ble_gap_conn_desc* desc){
             if(!desc->sec_state.encrypted) {
                 if ( blectl_get_event( BLECTL_PIN_AUTH ) ) {
-                    log_d("BLECTL pairing abort, reason: %02x", cmpl.fail_reason );
+                    log_d("BLECTL pairing abort");
                     blectl_clear_event( BLECTL_PIN_AUTH );
                     blectl_send_event_cb( BLECTL_PAIRING_ABORT, (void *)"abort" );
                     NimBLEDevice::getServer()->disconnect( desc->conn_handle );
                     return;
                 }
                 if ( blectl_get_event( BLECTL_AUTHWAIT | BLECTL_CONNECT ) ) {
-                    log_d("BLECTL authentication unsuccessful, client disconnected, reason: %02x", cmpl.fail_reason );
+                    log_d("BLECTL authentication unsuccessful, client disconnected");
                     blectl_clear_event( BLECTL_AUTHWAIT | BLECTL_CONNECT );
                     blectl_set_event( BLECTL_DISCONNECT );
                     blectl_send_event_cb( BLECTL_DISCONNECT, (void *) "disconnected" );
@@ -309,8 +317,41 @@ bool blectl_register_cb( EventBits_t event, CALLBACK_FUNC callback_func, const c
     return( callback_register( blectl_callback, event, callback_func, id ) );
 }
 
+typedef struct {
+    EventBits_t event;
+    bool has_text;
+    char text[32];
+} blectl_gui_msg_t;
+
+static void blectl_gui_deliver( void *arg ) {
+    blectl_gui_msg_t *msg = (blectl_gui_msg_t *)arg;
+    callback_send( blectl_callback, msg->event, msg->has_text ? (void *)msg->text : NULL );
+    free( msg );
+}
+
 static bool blectl_send_event_cb( EventBits_t event, void *arg ) {
-    return( callback_send( blectl_callback, event, arg ) );
+    /*
+     * NimBLE server callbacks are not the powermgm task. Pairing and icon
+     * listeners paint LVGL, so deliver them there. Copy the PIN off the stack.
+     */
+    if ( powermgm_on_loop_task() ) {
+        return( callback_send( blectl_callback, event, arg ) );
+    }
+
+    blectl_gui_msg_t *msg = (blectl_gui_msg_t *)calloc( 1, sizeof( blectl_gui_msg_t ) );
+    if ( msg == NULL ) {
+        return( false );
+    }
+    msg->event = event;
+    if ( arg != NULL ) {
+        msg->has_text = true;
+        strncpy( msg->text, (const char *)arg, sizeof( msg->text ) - 1 );
+    }
+    if ( !gui_dispatch( blectl_gui_deliver, msg ) ) {
+        free( msg );
+        return( false );
+    }
+    return( true );
 }
 
 void blectl_set_enable_on_standby( bool enable_on_standby ) {        

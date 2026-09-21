@@ -46,7 +46,13 @@ public:
     bool isForApplication(const char* appName) { return isEqualKeyValue("app", appName); }
     String command() { return (*this)["r"]; } // What requested
 
-    bool isEqualKeyValue(const char* key, const char* value) { return isValid() && containsKey(key) && strcmp((*this)[key], value) == 0; }
+    bool isEqualKeyValue(const char* key, const char* value) {
+        if ( !isValid() || !containsKey( key ) || !(*this)[key].is<const char *>() ) {
+            return false;
+        }
+        const char *stored = (*this)[key];
+        return stored != NULL && strcmp( stored, value ) == 0;
+    }
     bool isEqualKeyValue(const char* key, bool value) { return isValid() && containsKey(key) && (*this)[key] == value; }
   
 protected:

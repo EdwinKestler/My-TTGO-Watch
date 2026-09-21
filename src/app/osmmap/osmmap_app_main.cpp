@@ -391,7 +391,7 @@ static void osmmap_app_get_setting_menu_cb( lv_obj_t * obj, lv_event_t event ) {
             }
             else if ( !strcmp( lv_list_get_btn_text( obj ), "autostart wifi" ) ) {
                 osmmap_config.wifi_autoon = !osmmap_config.wifi_autoon;
-                wifictl_set_autoon( osmmap_config.load_ahead );
+                wifictl_set_autoon( osmmap_config.wifi_autoon );
                 osmmap_config.save();
             }
             else if ( !strcmp( lv_list_get_btn_text( obj ), "left/right hand" ) ) {
@@ -601,6 +601,7 @@ void osmmap_update_Task( void * pvParameters ) {
             if( osm_map_update( osmmap_location ) ) {
                 gui_take();
                 if ( osm_map_get_tile_image( osmmap_location ) ) {
+                    lv_img_cache_invalidate_src( osm_map_get_tile_image( osmmap_location ) );
                     lv_img_set_src( osmmap_app_tile_img, osm_map_get_tile_image( osmmap_location ) );
                 }
                 lv_obj_align( osmmap_app_tile_img, lv_obj_get_parent( osmmap_app_tile_img ), LV_ALIGN_CENTER, 0 , 0 );

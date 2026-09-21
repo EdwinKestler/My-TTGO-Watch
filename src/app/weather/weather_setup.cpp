@@ -274,7 +274,7 @@ bool weather_bluetooth_message_event_cb( EventBits_t event, void *arg ) {
 }
 
 void weather_bluetooth_message_msg_pharse( BluetoothJsonRequest &doc ) {
-    if( doc.containsKey("t") && doc.containsKey("weather") ) {
+    if( doc.containsKey("t") && doc.containsKey("app") && doc["t"].is<const char *>() && doc["app"].is<const char *>() ) {
         if( !strcmp( doc["t"], "conf" ) && !strcmp( doc["app"], "weather" ) ) {
             weather_config_t *weather_config = weather_get_config();
             strncpy( weather_config->apikey, doc["apikey"] |"", sizeof( weather_config->apikey ) );

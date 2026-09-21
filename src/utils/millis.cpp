@@ -13,6 +13,6 @@
             if(error != 0) {
                 printf("code error = %d\n", error);
             }
-            return s_info.uptime;        
+            return s_info.uptime * 1000L;        
         }
 #endif

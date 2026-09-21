@@ -20,10 +20,10 @@ public:
 
     void SetFlag(uint16_t id, bool val) {
         if (val) {
-            flags = flags | val;
+            flags = flags | id;
         }
         else {
-            flags = flags & (~val);
+            flags = flags & ~id;
         }
     }
 

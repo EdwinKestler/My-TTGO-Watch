@@ -57,6 +57,7 @@ bool decompress_file_into_spiffs( const char*filename, const char *dest, Progres
         log_i("success!");
         retval = true;
     }
+    delete TARGZUnpacker;
 #endif
     return( retval );
 }
@@ -83,12 +84,16 @@ bool decompress_file_into_spiffs( const char*filename, const char *dest, Progres
         /**
          * progress the stream
          */
-        if( !GZUnpacker->gzStreamUpdater( stream, size, 0, false ) ) {
+        if ( md5 != NULL && md5[ 0 ] != '\0' && !Update.setMD5( md5 ) ) {
+            log_e("gzip MD5 rejected");
+        }
+        else if( !GZUnpacker->gzStreamUpdater( stream, size, 0, false ) ) {
             log_e("gzStreamUpdater failed with return code #%d\n", GZUnpacker->tarGzGetError() );
         }
         else {
             retval = true;
         }
+        delete GZUnpacker;
         return( retval );
     }
 #endif

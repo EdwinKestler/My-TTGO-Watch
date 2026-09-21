@@ -136,13 +136,15 @@
         bool retval = false;
 
         switch( event ) {
-            case PMUCTL_STATUS:
-                bool charging = *(bool*)arg & PMUCTL_STATUS_CHARGING;
-                bool plug = *(bool*)arg & PMUCTL_STATUS_PLUG;
-                int32_t percent = *(int32_t*)arg & PMUCTL_STATUS_PERCENT;
+            case PMUCTL_STATUS: {
+                int32_t status = arg ? *(int32_t *)arg : 0;
+                bool charging = status & PMUCTL_STATUS_CHARGING;
+                bool plug = status & PMUCTL_STATUS_PLUG;
+                int32_t percent = status & PMUCTL_STATUS_PERCENT;
                 blebatctl_update_battery( percent, charging, plug );
                 retval = true;
                 break;
+            }
         }
         return( retval );
     }

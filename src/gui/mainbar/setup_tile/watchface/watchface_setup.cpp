@@ -59,11 +59,13 @@ lv_obj_t *watchface_setup_tile = NULL;                      /** @brief watchface
 lv_style_t watchface_setup_style;                           /** @brief watchface setup style */
 lv_style_t watchface_setup_button_style;                    /** @brief watchface setup button style */
 lv_obj_t *watchface_onoff = NULL;                           /** @brief watchface enable switch obj */
+lv_obj_t *watchface_notify_onoff = NULL;                    /** @brief watchface notification switch obj */
 lv_obj_t *watchface_info_label = NULL;                      /** @brief watchface info label obj */
 
 static void watchface_setup_default_cb( lv_obj_t *obj, lv_event_t event );
 static void watchface_setup_reload_and_test_cb( lv_obj_t *obj, lv_event_t event );
 static void watchface_setup_enable_event_cb( lv_obj_t *obj, lv_event_t event );
+static void watchface_setup_notify_event_cb( lv_obj_t *obj, lv_event_t event );
 static void watchface_setup_decompress_cb( lv_obj_t *obj, lv_event_t event );
 void watchface_setup_progress_cb( int32_t percent );
 
@@ -90,7 +92,7 @@ void watchface_setup_tile_setup( uint32_t tile_num ) {
     /**
      * switch container
      */
-    lv_obj_t *watchface_onoff_show_notifications_cont = wf_add_labeled_switch( watchface_setup_tile, "enable notifications", &watchface_onoff, watchface_config->watchface_show_notifications, watchface_setup_enable_event_cb, SETUP_STYLE );
+    lv_obj_t *watchface_onoff_show_notifications_cont = wf_add_labeled_switch( watchface_setup_tile, "enable notifications", &watchface_notify_onoff, watchface_config->watchface_show_notifications, watchface_setup_notify_event_cb, SETUP_STYLE );
     lv_obj_align( watchface_onoff_show_notifications_cont, watchface_onoff_cont, LV_ALIGN_OUT_BOTTOM_MID, 0, THEME_ICON_PADDING );
     /**
      * btn container
@@ -180,6 +182,14 @@ static void watchface_setup_reload_and_test_cb( lv_obj_t *obj, lv_event_t event 
         case LV_EVENT_CLICKED:
             watchface_reload_and_test();
             break;
+    }
+}
+
+static void watchface_setup_notify_event_cb( lv_obj_t *obj, lv_event_t event ) {
+    switch( event ) {
+        case( LV_EVENT_VALUE_CHANGED ):     watchface_config->watchface_show_notifications = lv_switch_get_state( obj );
+                                            watchface_config->save();
+                                            break;
     }
 }
 

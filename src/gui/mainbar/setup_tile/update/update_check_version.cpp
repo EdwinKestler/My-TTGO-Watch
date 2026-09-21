@@ -39,6 +39,7 @@ int32_t firmwaresize = 0;
 
 int64_t update_check_new_version( char *url ) {
     int httpcode = -1;
+    firmwareversion = -1;
     /**
      * load uri file into ram
      */

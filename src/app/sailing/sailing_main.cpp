@@ -248,13 +248,14 @@ void sailing_app_setup_udp( bool enable ) {
              * register call back function on packet
              */
             udp->onPacket( [] ( AsyncUDPPacket packet ) {
-                char buf[ packet.length() ];
+                char buf[ packet.length() + 1 ];
                 /**
                  * fill buffer with data
                  */
                 for ( int i = 0 ; i < packet.length() ; i++ ) {
                     buf[ i ]= (char)*( packet.data() + i );
                 }
+                buf[ packet.length() ] = '\0';
                 /**
                  * check for data
                  */

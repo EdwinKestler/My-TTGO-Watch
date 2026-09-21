@@ -136,6 +136,7 @@ bool http_ota_start_compressed( const char* url, const char* md5, int32_t firmwa
      */
     if( sslclient ) {
         sslclient->stop();
+        delete sslclient;
     }
 #endif
     return( retval );
@@ -207,12 +208,18 @@ bool http_ota_start_uncompressed( const char* url, const char* md5 ) {
             /*
              * set md5 and reset downloaded counter
              */
-            Update.setMD5( md5 );
+            if ( md5 != NULL && md5[ 0 ] != '\0' && !Update.setMD5( md5 ) ) {
+                http_ota_send_event_cb( HTTP_OTA_ERROR, (void*)"MD5 rejected" );
+                log_e("MD5 rejected");
+                Update.abort();
+                ret = false;
+            }
             downloaded = 0;
             /**
              * check if update finish
              */
-            while ( !Update.isFinished() ) {
+            uint32_t stall_since = millis();
+            while ( ret && !Update.isFinished() ) {
                 /**
                  * check for broken connection
                  */
@@ -222,6 +229,7 @@ bool http_ota_start_uncompressed( const char* url, const char* md5 ) {
                      */
                     size = stream->available();
                     if( size > 0 ) {
+                        stall_since = millis();
                         /*
                          * prepare write buffer
                          */
@@ -252,6 +260,23 @@ bool http_ota_start_uncompressed( const char* url, const char* md5 ) {
                             len -= c;
                         }
                     }
+                    else {
+                        if ( millis() - stall_since > 10000 ) {
+                            http_ota_send_event_cb( HTTP_OTA_ERROR, (void*)"download stalled" );
+                            log_e("download stalled");
+                            Update.abort();
+                            ret = false;
+                            break;
+                        }
+                        delay( 1 );
+                    }
+                }
+                else {
+                    http_ota_send_event_cb( HTTP_OTA_ERROR, (void*)"download dropped" );
+                    log_e("download dropped");
+                    Update.abort();
+                    ret = false;
+                    break;
                 }
             }
         }
@@ -259,7 +284,6 @@ bool http_ota_start_uncompressed( const char* url, const char* md5 ) {
             http_ota_send_event_cb( HTTP_OTA_ERROR, (void*)"Flashing init ... failed!" );
             log_e("Flashing init ... failed!");
         }
-        http_ota_send_event_cb( HTTP_OTA_FINISH, (void*)NULL );
     }
     else {
         http_ota_send_event_cb( HTTP_OTA_ERROR, (void*)"[HTTP] GET... failed!" );
@@ -275,6 +299,8 @@ bool http_ota_start_uncompressed( const char* url, const char* md5 ) {
      */
     if( sslclient ) {
         sslclient->stop();
+        delete sslclient;
+        sslclient = NULL;
     }
     /**
      * check if written bytes equal to downloaded bytes

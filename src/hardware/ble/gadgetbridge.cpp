@@ -25,6 +25,9 @@
 #include "hardware/callback.h"
 #include "hardware/pmu.h"
 #include "hardware/powermgm.h"
+#include "gui/gui.h"
+#include <stdlib.h>
+#include <string.h>
 #include "utils/charbuffer.h"
 #include "utils/alloc.h"
 #include "utils/bluejsonrequest.h"
@@ -101,8 +104,10 @@ static bool gadgetbridge_blectl_event_cb( EventBits_t event, void *arg );
                                                  * Send message
                                                  */
                                                 powermgm_resume_from_ISR();
-                                                if ( xQueueSendFromISR( gadgetbridge_msg_receive_queue, &buff, 0 ) != pdTRUE )
+                                                if ( xQueueSend( gadgetbridge_msg_receive_queue, &buff, 0 ) != pdTRUE ) {
                                                     log_e("fail to send a receive BLE msg (%d bytes)", size );
+                                                    free( buff );
+                                                }
                                                 gadgetbridge_RX_msg.clear();
                                                 break;
                                             }
@@ -177,8 +182,41 @@ bool gadgetbridge_register_cb( EventBits_t event, CALLBACK_FUNC callback_func, c
     return( callback_register( gadgetbridge_callback, event, callback_func, id ) );
 }
 
+typedef struct {
+    EventBits_t event;
+    bool has_text;
+    char text[64];
+} gadgetbridge_gui_msg_t;
+
+static void gadgetbridge_gui_deliver( void *arg ) {
+    gadgetbridge_gui_msg_t *msg = (gadgetbridge_gui_msg_t *)arg;
+    callback_send( gadgetbridge_callback, msg->event, msg->has_text ? (void *)msg->text : NULL );
+    free( msg );
+}
+
 static bool gadgetbridge_send_event_cb( EventBits_t event, void *arg ) {
-    return( callback_send( gadgetbridge_callback, event, arg ) );
+    /*
+     * JSON messages are stack objects parsed on the powermgm loop. Only plain
+     * strings from the NimBLE host task are copied onto that loop.
+     */
+    if ( powermgm_on_loop_task() || event == GADGETBRIDGE_JSON_MSG ) {
+        return( callback_send( gadgetbridge_callback, event, arg ) );
+    }
+
+    gadgetbridge_gui_msg_t *msg = (gadgetbridge_gui_msg_t *)calloc( 1, sizeof( gadgetbridge_gui_msg_t ) );
+    if ( msg == NULL ) {
+        return( false );
+    }
+    msg->event = event;
+    if ( arg != NULL ) {
+        msg->has_text = true;
+        strncpy( msg->text, (const char *)arg, sizeof( msg->text ) - 1 );
+    }
+    if ( !gui_dispatch( gadgetbridge_gui_deliver, msg ) ) {
+        free( msg );
+        return( false );
+    }
+    return( true );
 }
 
 bool gadgetbridge_send_loop_msg( const char *format, ... ) {
@@ -234,8 +272,10 @@ bool gadgetbridge_send_msg( const char *format, ... ) {
              * if we have a string, send it via msg_queue
              */
             if( buffer ) {
-                if ( xQueueSend( gadgetbridge_msg_transmit_queue, &buffer, 0 ) != pdTRUE )
+                if ( xQueueSend( gadgetbridge_msg_transmit_queue, &buffer, 0 ) != pdTRUE ) {
                     log_e("fail to send msg");
+                    free( buffer );
+                }
                 else
                     retval = true;
             }
@@ -258,8 +298,14 @@ static void gadgetbridge_send_next_msg( char *msg ) {
 
         size_t size = strlen( (const char*)msg ) + 1;
 
-        if ( gadgetbridge_msg.msg == NULL )
-            gadgetbridge_msg.msg = (char *)CALLOC_ASSERT( size, 1, "blectl_msg.msg calloc failed" );
+        if ( gadgetbridge_msg.msg == NULL || (size_t)gadgetbridge_msg.msglen < size ) {
+            char *resized = (char *)realloc( gadgetbridge_msg.msg, size );
+            if ( resized == NULL ) {
+                log_e("gadgetbridge msg realloc failed");
+                return;
+            }
+            gadgetbridge_msg.msg = resized;
+        }
 
         strncpy( gadgetbridge_msg.msg, msg, size );
         gadgetbridge_msg.active = true;
@@ -364,7 +410,7 @@ static bool gadgetbridge_powermgm_loop_cb( EventBits_t event, void *arg ) {
             /**
              * check if we have a GB message
              */
-            if( gbmsg[ 0 ] == 'G' && gbmsg[ 1 ] == 'B' ) {
+            if( gbmsg[ 0 ] == 'G' && gbmsg[ 1 ] == 'B' && strlen( gbmsg ) > 3 ) {
                 /**
                  * copy gbmsg pointer to a new pointer to prevent destroying gbmsg pointer
                  */

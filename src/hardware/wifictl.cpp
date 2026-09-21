@@ -23,6 +23,9 @@
 #include "wifictl.h"
 #include "powermgm.h"
 #include "callback.h"
+#include "gui/gui.h"
+#include <stdlib.h>
+#include <string.h>
 #include "config/wifictlconfig.h"
 #include "utils/webserver/webserver.h"
 #include "utils/ftpserver/ftpserver.h"
@@ -129,12 +132,22 @@ void wifictl_setup( void ) {
          * connect if we discover a known network, but skip the ones that were already tried
          */
         for( int i = 0 ; i < len ; i++ ) {
+            if ( wifictl_config->networklist == NULL || wifictl_config->networklist_tried == NULL ) {
+                break;
+            }
             for ( int entry = 0 ; entry < NETWORKLIST_ENTRYS ; entry++ ) {
+                if ( wifictl_config->networklist[ entry ].ssid[ 0 ] == '\0' ) {
+                    continue;
+                }
                 if ( !strcmp( wifictl_config->networklist[ entry ].ssid,  WiFi.SSID(i).c_str() ) && strcmp( wifictl_config->networklist[ entry ].ssid,  wifictl_config->networklist_tried[ entry ].ssid ) ) {
+                    strncpy( wifictl_config->networklist_tried[ entry ].ssid, wifictl_config->networklist[ entry ].ssid, sizeof( wifictl_config->networklist_tried[ entry ].ssid ) - 1 );
+                    wifictl_config->networklist_tried[ entry ].ssid[ sizeof( wifictl_config->networklist_tried[ entry ].ssid ) - 1 ] = '\0';
                     wifictl_send_event_cb( WIFICTL_MSG, (void *)"connecting ..." );
                     WiFi.setHostname( wifictl_config->hostname );
                     WiFi.begin( wifictl_config->networklist[ entry ].ssid, wifictl_config->networklist[ entry ].password );
                     log_d("try to connect to network entry %s with %d rssi", WiFi.SSID(i).c_str(), WiFi.RSSI(i) );
+                    i = len;
+                    break;
                 }
             }
         }
@@ -216,12 +229,18 @@ void wifictl_setup( void ) {
 
         WiFi.onEvent([](WiFiEvent_t event, WiFiEventInfo_t info) {
             esp_wifi_wps_disable();
-            wifictl_send_event_cb( WIFICTL_WPS_SUCCESS, (void *)"wps failed" );
+            wifictl_clear_event( WIFICTL_WPS_REQUEST );
+            wifictl_set_event( WIFICTL_SCAN );
+            wifictl_send_event_cb( WIFICTL_WPS_FAILED, (void *)"wps failed" );
+            WiFi.scanNetworks( true );
         }, WiFiEvent_t::SYSTEM_EVENT_STA_WPS_ER_FAILED );
 
         WiFi.onEvent([](WiFiEvent_t event, WiFiEventInfo_t info) {
             esp_wifi_wps_disable();
-            wifictl_send_event_cb( WIFICTL_WPS_SUCCESS, (void *)"wps timeout" );
+            wifictl_clear_event( WIFICTL_WPS_REQUEST );
+            wifictl_set_event( WIFICTL_SCAN );
+            wifictl_send_event_cb( WIFICTL_WPS_FAILED, (void *)"wps timeout" );
+            WiFi.scanNetworks( true );
         }, WiFiEvent_t::SYSTEM_EVENT_STA_WPS_ER_TIMEOUT );
     #endif
     /*
@@ -245,12 +264,6 @@ void wifictl_setup( void ) {
      * set default state after init
      */
     wifictl_set_event( WIFICTL_OFF );
-    /**
-     * change here your network for first use if WPS not work
-     * or setup via display not possible
-     */
-    if( !wifictl_is_known( "foo" ) )
-        wifictl_insert_network( "foo", "bar" );
 }
 
 bool wifictl_powermgm_event_cb( EventBits_t event, void *arg ) {
@@ -324,6 +337,20 @@ void wifictl_set_webserver( bool webserver ) {
 
 bool wifictl_get_ftpserver( void ) {
     return( wifictl_config->ftpserver );
+}
+
+const char *wifictl_get_ftp_user( void ) {
+    if ( wifictl_config == NULL ) {
+        return( "" );
+    }
+    return( wifictl_config->ftpuser );
+}
+
+const char *wifictl_get_ftp_pass( void ) {
+    if ( wifictl_config == NULL ) {
+        return( "" );
+    }
+    return( wifictl_config->ftppass );
 }
 
 void wifictl_set_ftpserver( bool ftpserver ) {
@@ -405,11 +432,54 @@ bool wifictl_register_cb( EventBits_t event, CALLBACK_FUNC callback_func, const 
     return( callback_register( wifictl_callback, event, callback_func, id ) );
 }
 
+typedef struct {
+    EventBits_t event;
+    bool is_bool;
+    bool bool_value;
+    char text[96];
+} wifictl_gui_msg_t;
+
+static void wifictl_gui_deliver( void *arg ) {
+    wifictl_gui_msg_t *msg = (wifictl_gui_msg_t *)arg;
+    void *payload = NULL;
+
+    if ( msg->is_bool ) {
+        payload = &msg->bool_value;
+    }
+    else if ( msg->event != WIFICTL_SCAN_DONE ) {
+        payload = msg->text;
+    }
+    callback_send( wifictl_callback, msg->event, payload );
+    free( msg );
+}
+
 bool wifictl_send_event_cb( EventBits_t event, void *arg ) {
     /*
-     * call all callbacks with her event mask
+     * Wi-Fi callbacks run on the sys_evt task. Listeners paint LVGL, so deliver
+     * them on the powermgm task. String and bool arguments are copied because
+     * the caller's buffer does not outlive this function.
      */
-    return( callback_send( wifictl_callback, event, arg ) );
+    if ( powermgm_on_loop_task() ) {
+        return( callback_send( wifictl_callback, event, arg ) );
+    }
+
+    wifictl_gui_msg_t *msg = (wifictl_gui_msg_t *)calloc( 1, sizeof( wifictl_gui_msg_t ) );
+    if ( msg == NULL ) {
+        return( false );
+    }
+    msg->event = event;
+    if ( event == WIFICTL_AUTOON && arg != NULL ) {
+        msg->is_bool = true;
+        msg->bool_value = *(bool *)arg;
+    }
+    else if ( event != WIFICTL_SCAN_DONE && arg != NULL ) {
+        strncpy( msg->text, (const char *)arg, sizeof( msg->text ) - 1 );
+    }
+    if ( !gui_dispatch( wifictl_gui_deliver, msg ) ) {
+        free( msg );
+        return( false );
+    }
+    return( true );
 }
 
 bool wifictl_is_known( const char* networkname ) {

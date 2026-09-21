@@ -243,8 +243,11 @@ void calc_process_button(char cmd)
                 op = '\0';
                 calc_show_history(inputs[1], oop, inputs[0], false, false);
             }
-            input[strlen(input)] = cmd;
-            input[strlen(input)] = '\0';
+            if ( strlen( input ) < sizeof( input ) - 1 ) {
+                size_t len = strlen( input );
+                input[ len ] = cmd;
+                input[ len + 1 ] = '\0';
+            }
             inputs[0] = atof(input);
             calc_show_result(inputs[0]);
             break;

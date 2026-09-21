@@ -36,6 +36,23 @@
             hw_timer_t * timer = NULL;
             portMUX_TYPE DRAM_ATTR timerMux = portMUX_INITIALIZER_UNLOCKED;
 
+            static void IRAM_ATTR motor_pin_level( bool on ) {
+                #if MOTOR_PIN < 32
+                    if ( on ) {
+                        GPIO.out_w1ts = ( 1UL << MOTOR_PIN );
+                    }
+                    else {
+                        GPIO.out_w1tc = ( 1UL << MOTOR_PIN );
+                    }
+                #else
+                    if ( on ) {
+                        GPIO.out1_w1ts.val = ( 1UL << ( MOTOR_PIN - 32 ) );
+                    }
+                    else {
+                        GPIO.out1_w1tc.val = ( 1UL << ( MOTOR_PIN - 32 ) );
+                    }
+                #endif
+            }
             void IRAM_ATTR onTimer();
             void IRAM_ATTR onTimer() {
                 /*
@@ -50,13 +67,10 @@
                     * decrement timer counter and enable motor
                     */
                     motor_run_time_counter--;       
-                    digitalWrite(MOTOR_PIN, HIGH );
+                    motor_pin_level( true );
                 }
                 else {
-                    /*
-                    * disable motor
-                    */
-                    digitalWrite(MOTOR_PIN, LOW );              
+                    motor_pin_level( false );
                 }
                 /*
                 * leave critical section
@@ -74,6 +88,23 @@
         hw_timer_t * timer = NULL;
         portMUX_TYPE DRAM_ATTR timerMux = portMUX_INITIALIZER_UNLOCKED;
 
+        static void IRAM_ATTR motor_pin_level( bool on ) {
+            #if MOTOR_PIN < 32
+                if ( on ) {
+                    GPIO.out_w1ts = ( 1UL << MOTOR_PIN );
+                }
+                else {
+                    GPIO.out_w1tc = ( 1UL << MOTOR_PIN );
+                }
+            #else
+                if ( on ) {
+                    GPIO.out1_w1ts.val = ( 1UL << ( MOTOR_PIN - 32 ) );
+                }
+                else {
+                    GPIO.out1_w1tc.val = ( 1UL << ( MOTOR_PIN - 32 ) );
+                }
+            #endif
+        }
         void IRAM_ATTR onTimer();
         void IRAM_ATTR onTimer() {
             /*
@@ -88,13 +119,14 @@
                 * decrement timer counter and enable motor
                 */
                 motor_run_time_counter--;       
-                digitalWrite(MOTOR_PIN, HIGH );
+                motor_pin_level( true );
             }
             else {
                 /*
-                * disable motor
+                * disable motor and stop the alarm so flash writes are not
+                * interrupted by a cache-miss digitalWrite
                 */
-                digitalWrite(MOTOR_PIN, LOW );              
+                motor_pin_level( false );
             }
             /*
             * leave critical section
@@ -154,10 +186,10 @@ void motor_setup( void ) {
             }     
         #elif defined( LILYGO_WATCH_2020_V1 ) || defined( LILYGO_WATCH_2020_V3 ) || defined( LILYGO_WATCH_2021 ) 
             pinMode(MOTOR_PIN, OUTPUT);
+            digitalWrite(MOTOR_PIN, LOW);
             timer = timerBegin(0, 80, true);
             timerAttachInterrupt(timer, &onTimer, true);
             timerAlarmWrite(timer, 10000, true);
-            timerAlarmEnable(timer);
         #elif defined( WT32_SC01 )
 
         #endif
@@ -229,6 +261,7 @@ void motor_vibe( int time, bool enforced ) {
             */        
             portENTER_CRITICAL(&timerMux);
             motor_run_time_counter = time;
+            timerAlarmEnable( timer );
             /*
             * leave critical section
             */

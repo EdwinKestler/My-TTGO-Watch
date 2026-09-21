@@ -49,7 +49,7 @@ void ftpserver_start( const char *user, const char *pass ) {
          */
         if ( ftpSrv ) {
             ftpSrv->begin( user, pass );
-            log_i("use ftp user/password: %s/%s", user, pass );
+            log_i("ftp server started, user: %s", user );
             powermgm_register_loop_cb( POWERMGM_WAKEUP | POWERMGM_SILENCE_WAKEUP, ftpserver_powermgm_event_loop_cb, "handle ftp" );
         }
         else {

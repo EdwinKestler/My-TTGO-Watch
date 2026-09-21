@@ -189,11 +189,13 @@ bool update_http_ota_event_cb( EventBits_t event, void *arg ) {
             lv_label_set_text( update_status_label, (char *)arg );
             lv_obj_align( update_status_label, update_btn, LV_ALIGN_OUT_BOTTOM_MID, 0, 5 );
             break;
-        case HTTP_OTA_FINISH:        
-            statusbar_show_icon( STATUSBAR_WARNING );
-            statusbar_style_icon( STATUSBAR_WARNING, STATUSBAR_STYLE_GREEN );   
-            lv_label_set_text( update_status_label, (char *)arg );
-            lv_obj_align( update_status_label, update_btn, LV_ALIGN_OUT_BOTTOM_MID, 0, 5 );
+        case HTTP_OTA_FINISH:
+            if ( arg != NULL ) {
+                statusbar_show_icon( STATUSBAR_WARNING );
+                statusbar_style_icon( STATUSBAR_WARNING, STATUSBAR_STYLE_GREEN );
+                lv_label_set_text( update_status_label, (char *)arg );
+                lv_obj_align( update_status_label, update_btn, LV_ALIGN_OUT_BOTTOM_MID, 0, 5 );
+            }
             break;
         case HTTP_OTA_ERROR:
             statusbar_show_icon( STATUSBAR_WARNING );
@@ -347,6 +349,10 @@ void update_Task( void * pvParameters ) {
         }
         else if ( firmware_version == atoll( __FIRMWARE__ ) ) {
             wf_label_printf( update_status_label, update_btn, LV_ALIGN_OUT_BOTTOM_MID, 0, THEME_PADDING, "yeah! up to date ..." );
+            setup_hide_indicator( update_setup_icon );
+        }
+        else if ( firmware_version < 0 ) {
+            wf_label_printf( update_status_label, update_btn, LV_ALIGN_OUT_BOTTOM_MID, 0, THEME_PADDING, "get update info failed" );
             setup_hide_indicator( update_setup_icon );
         }
         else if ( firmware_version < atoll( __FIRMWARE__ ) ) {

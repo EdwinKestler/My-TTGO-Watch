@@ -88,6 +88,14 @@ bool powermgm_button_event_cb( EventBits_t event, void *arg ) {
     return( true );
 }
 
+bool powermgm_on_loop_task( void ) {
+#ifdef NATIVE_64BIT
+    return( true );
+#else
+    return( _powermgmTask != NULL && xTaskGetCurrentTaskHandle() == _powermgmTask );
+#endif
+}
+
 void powermgm_loop( void ) {
     static bool standby = true;
     #ifdef NATIVE_64BIT

@@ -114,31 +114,38 @@ void powermeter_main_task( lv_task_t * task );
     }
     else  {
         if ( doc.containsKey("id") ) {
-            lv_label_set_text( id_label, doc["id"] );
+            if ( doc["id"].is<const char *>() ) {
+                lv_label_set_text( id_label, doc["id"].as<const char *>() );
+            }
+            else {
+                char id_text[16];
+                snprintf( id_text, sizeof( id_text ), "%d", doc["id"].as<int>() );
+                lv_label_set_text( id_label, id_text );
+            }
         }
         if ( doc["all"].containsKey("power") ) {
             const char * unit = "kW";
-            if( doc.containsKey("PowerUnit") )
-                unit = doc["PowerUnit"];
-            wf_label_printf( power_label, "%0.2fkW", atof( doc["all"]["power"] ), unit );
+            if( doc["PowerUnit"].is<const char *>() )
+                unit = doc["PowerUnit"].as<const char *>();
+            wf_label_printf( power_label, "%0.2f%s", doc["all"]["power"].as<float>(), unit );
         }
         if ( doc["channel0"].containsKey("power") ) {
             const char * unit = "kW";
-            if( doc.containsKey("PowerUnit") )
-                unit = doc["PowerUnit"];
-            wf_label_printf( power_label, "%0.2f%s", atof( doc["channel0"]["power"] ), unit );
+            if( doc["PowerUnit"].is<const char *>() )
+                unit = doc["PowerUnit"].as<const char *>();
+            wf_label_printf( power_label, "%0.2f%s", doc["channel0"]["power"].as<float>(), unit );
         }
         if ( doc["channel0"].containsKey("voltage") ) {
             const char * unit = "V";
-            if( doc.containsKey("VoltageUnit") )
-                unit = doc["VoltageUnit"];
-            wf_label_printf( voltage_label, "%0.1f%s", atof( doc["channel0"]["voltage"] ), unit );
+            if( doc["VoltageUnit"].is<const char *>() )
+                unit = doc["VoltageUnit"].as<const char *>();
+            wf_label_printf( voltage_label, "%0.1f%s", doc["channel0"]["voltage"].as<float>(), unit );
         }
         if ( doc["channel0"].containsKey("current") ) {
             const char * unit = "A";
-            if( doc.containsKey("CurrentUnit") )
-                unit = doc["CurrentUnit"];
-            wf_label_printf( current_label, "%0.1f%s", atof( doc["channel0"]["current"] ), unit );
+            if( doc["CurrentUnit"].is<const char *>() )
+                unit = doc["CurrentUnit"].as<const char *>();
+            wf_label_printf( current_label, "%0.1f%s", doc["channel0"]["current"].as<float>(), unit );
         }
 
         lv_obj_align( id_label, id_cont, LV_ALIGN_IN_RIGHT_MID, -THEME_PADDING, 0 );

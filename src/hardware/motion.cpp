@@ -292,40 +292,61 @@ bool bma_powermgm_loop_cb( EventBits_t event , void *arg ) {
             #ifdef M5PAPER
             #elif defined( LILYGO_WATCH_2020_V1 ) || defined( LILYGO_WATCH_2020_V2 ) || defined( LILYGO_WATCH_2020_V3 )
                 TTGOClass *ttgo = TTGOClass::getWatch();
-                while( !ttgo->bma->readInterrupt() );
-                /*
-                * set powermgm wakeup event and save BMA_* event
-                */
-                if ( ttgo->bma->isDoubleClick() ) {
-                    if ( !powermgm_get_event( POWERMGM_WAKEUP ) )
-                        powermgm_set_event( POWERMGM_WAKEUP_REQUEST );
-                    BMA_doubleclick = true;
+                bool bma_status_ok = false;
+                for ( int bma_try = 0 ; bma_try < 5 ; bma_try++ ) {
+                    if ( ttgo->bma->readInterrupt() ) {
+                        bma_status_ok = true;
+                        break;
+                    }
+                    delay( 1 );
                 }
-                if ( ttgo->bma->isTilt() ) {
-                    if ( !powermgm_get_event( POWERMGM_WAKEUP ) )
-                        powermgm_set_event( POWERMGM_WAKEUP_REQUEST );
-                    BMA_tilt = true;
+                if ( !bma_status_ok ) {
+                    log_e("BMA interrupt status read failed");
                 }
-                if ( ttgo->bma->isStepCounter() ) {
-                    BMA_stepcounter = true;
+                else {
+                    if ( ttgo->bma->isDoubleClick() ) {
+                        if ( !powermgm_get_event( POWERMGM_WAKEUP ) )
+                            powermgm_set_event( POWERMGM_WAKEUP_REQUEST );
+                        BMA_doubleclick = true;
+                    }
+                    if ( ttgo->bma->isTilt() ) {
+                        if ( !powermgm_get_event( POWERMGM_WAKEUP ) )
+                            powermgm_set_event( POWERMGM_WAKEUP_REQUEST );
+                        BMA_tilt = true;
+                    }
+                    if ( ttgo->bma->isStepCounter() ) {
+                        BMA_stepcounter = true;
+                    }
                 }
             #elif defined( LILYGO_WATCH_2021 )
                 /*
                 * set powermgm wakeup event and save BMA_* event
                 */
-                while (!bma.getINT());
-                if ( bma.isDoubleClick() ) {
-                    if ( !powermgm_get_event( POWERMGM_WAKEUP ) )
-                        powermgm_set_event( POWERMGM_WAKEUP_REQUEST );
-                    BMA_doubleclick = true;
+                bool bma_status_ok = false;
+                for ( int bma_try = 0 ; bma_try < 5 ; bma_try++ ) {
+                    if ( bma.getINT() ) {
+                        bma_status_ok = true;
+                        break;
+                    }
+                    delay( 1 );
                 }
-                if ( bma.isTilt() ) {
-                    if ( !powermgm_get_event( POWERMGM_WAKEUP ) )
-                        powermgm_set_event( POWERMGM_WAKEUP_REQUEST );
-                    BMA_tilt = true;
+                if ( !bma_status_ok ) {
+                    log_e("BMA interrupt status read failed");
                 }
-                if ( bma.isStepCounter() ) {
-                    BMA_stepcounter = true;
+                else {
+                    if ( bma.isDoubleClick() ) {
+                        if ( !powermgm_get_event( POWERMGM_WAKEUP ) )
+                            powermgm_set_event( POWERMGM_WAKEUP_REQUEST );
+                        BMA_doubleclick = true;
+                    }
+                    if ( bma.isTilt() ) {
+                        if ( !powermgm_get_event( POWERMGM_WAKEUP ) )
+                            powermgm_set_event( POWERMGM_WAKEUP_REQUEST );
+                        BMA_tilt = true;
+                    }
+                    if ( bma.isStepCounter() ) {
+                        BMA_stepcounter = true;
+                    }
                 }
             #elif defined( WT32_SC01 )
 

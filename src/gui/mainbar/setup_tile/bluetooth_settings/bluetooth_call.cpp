@@ -123,7 +123,10 @@ void bluetooth_call_msg_pharse( BluetoothJsonRequest &doc ) {
         /*
          * check for an incoming call
          */
-        if( !strcmp( doc["t"], "call" ) && !strcmp( doc["cmd"], "incoming" ) ) {
+        if( !doc["t"].is<const char *>() || strcmp( doc["t"], "call" ) != 0 || !doc["cmd"].is<const char *>() ) {
+            return;
+        }
+        if( !strcmp( doc["cmd"], "incoming" ) ) {
             /*
              * hide statusbar and save current powerstate for later use after a call
              */
@@ -155,14 +158,15 @@ void bluetooth_call_msg_pharse( BluetoothJsonRequest &doc ) {
             lv_obj_align( bluetooth_call_number_label, bluetooth_call_img, LV_ALIGN_OUT_BOTTOM_MID, 0, 5 );                
             motor_vibe(250);            
         }
-        else {
+        else if ( !strcmp( doc["cmd"], "end" ) || !strcmp( doc["cmd"], "reject" ) ) {
             /*
-            * restore last powerstate after call
+            * restore last powerstate after the call that woke the watch
             */
             if ( standby == true ) {
+                standby = false;
                 powermgm_set_event( POWERMGM_STANDBY_REQUEST );
+                mainbar_jump_to_maintile( LV_ANIM_OFF );
             }
-            mainbar_jump_to_maintile( LV_ANIM_OFF );
         }
         lv_obj_invalidate( lv_scr_act() );
     }

@@ -66,8 +66,18 @@ int weather_fetch_today( weather_config_t *weather_config, weather_forcast_t *we
                 snprintf( weather_today->temp, sizeof( weather_today->temp ), "%0.1f°%s", doc["main"]["temp"].as<float>(), weather_units_symbol);
                 snprintf( weather_today->humidity, sizeof( weather_today->humidity ),"%f%%", doc["main"]["humidity"].as<float>() );
                 snprintf( weather_today->pressure, sizeof( weather_today->pressure ),"%fpha", doc["main"]["pressure"].as<float>() );
-                strcpy( weather_today->icon, doc["weather"][0]["icon"] );
-                strcpy( weather_today->name, doc["name"] );
+                const char *weather_icon = doc["weather"][0]["icon"].is<const char *>() ? doc["weather"][0]["icon"].as<const char *>() : "n/a";
+                const char *weather_name = doc["name"].is<const char *>() ? doc["name"].as<const char *>() : "n/a";
+                if ( weather_icon == NULL ) {
+                    weather_icon = "n/a";
+                }
+                if ( weather_name == NULL ) {
+                    weather_name = "n/a";
+                }
+                strncpy( weather_today->icon, weather_icon, sizeof( weather_today->icon ) - 1 );
+                weather_today->icon[ sizeof( weather_today->icon ) - 1 ] = '\0';
+                strncpy( weather_today->name, weather_name, sizeof( weather_today->name ) - 1 );
+                weather_today->name[ sizeof( weather_today->name ) - 1 ] = '\0';
 
                 int directionDegree = doc["wind"]["deg"].as<int>();
                 int speed = doc["wind"]["speed"].as<int>();
@@ -127,8 +137,10 @@ int weather_fetch_forecast( weather_config_t *weather_config, weather_forcast_t 
                     snprintf( weather_forecast[ i ].temp, sizeof( weather_forecast[ i ].temp ),"%0.1f°%s", doc["list"][i]["main"]["temp"].as<float>(), weather_units_symbol );
                     snprintf( weather_forecast[ i ].humidity, sizeof( weather_forecast[ i ].humidity ),"%f%%", doc["list"][i]["main"]["humidity"].as<float>() );
                     snprintf( weather_forecast[ i ].pressure, sizeof( weather_forecast[ i ].pressure ),"%fpha", doc["list"][i]["main"]["pressure"].as<float>() );
-                    strncpy( weather_forecast[ i ].icon, doc["list"][i]["weather"][0]["icon"] | "n/a", sizeof(  weather_forecast[ i ].icon ) );
-                    strncpy( weather_forecast[ i ].name, doc["city"]["name"] | "n/a", sizeof( weather_forecast[ i ].name ) );
+                    strncpy( weather_forecast[ i ].icon, doc["list"][i]["weather"][0]["icon"] | "n/a", sizeof(  weather_forecast[ i ].icon ) - 1 );
+                    weather_forecast[ i ].icon[ sizeof( weather_forecast[ i ].icon ) - 1 ] = '\0';
+                    strncpy( weather_forecast[ i ].name, doc["city"]["name"] | "n/a", sizeof( weather_forecast[ i ].name ) - 1 );
+                    weather_forecast[ i ].name[ sizeof( weather_forecast[ i ].name ) - 1 ] = '\0';
 
                     int directionDegree = doc["list"][i]["wind"]["deg"].as<int>() | 0;
                     int speed = doc["list"][i]["wind"]["speed"].as<int>() | 0;

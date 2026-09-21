@@ -92,7 +92,7 @@ class BleUpdater {
         /**
          * @brief the previous notified value
          */
-        T last_value;
+        T last_value = T();
         /**
          * @brief the time of the previous notification
          */

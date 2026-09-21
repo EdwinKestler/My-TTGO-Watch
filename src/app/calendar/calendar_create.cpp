@@ -376,6 +376,22 @@ static int calendar_create_dummy_callback( void *data, int argc, char **argv, ch
     return( 0 );
 }
 
+static String calendar_sql_escape( const char *text ) {
+    String out;
+    if ( text == NULL ) {
+        return( out );
+    }
+    for ( const char *p = text; *p != '\0'; p++ ) {
+        if ( *p == '\'' ) {
+            out += "''";
+        }
+        else {
+            out += *p;
+        }
+    }
+    return( out );
+}
+
 void calendar_create_update_date( void ) {
     /**
      * build sql query string
@@ -384,6 +400,7 @@ void calendar_create_update_date( void ) {
     snprintf( date, sizeof( date ),"%04d%02d%02d%02d%02d", calendar_create_year, calendar_create_month, calendar_create_day, lv_dropdown_get_selected( calendar_create_hour_list ), lv_dropdown_get_selected( calendar_create_min_list ) * 15 );
 #ifdef NATIVE_64BIT
     char sql[512]="";
+    String note = calendar_sql_escape( lv_textarea_get_text( claendar_create_textfield ) );
     snprintf( sql, sizeof( sql ), "UPDATE calendar SET date=%s,year=%d,month=%d,day=%d,hour=%d,min=%d,content='%s' WHERE rowid == %d;",
                             date,
                             calendar_create_year,
@@ -391,7 +408,7 @@ void calendar_create_update_date( void ) {
                             calendar_create_day,
                             lv_dropdown_get_selected( calendar_create_hour_list ),
                             lv_dropdown_get_selected( calendar_create_min_list ) * 15,
-                            lv_textarea_get_text( claendar_create_textfield ),
+                            note.c_str(),
                             calendar_create_edit_rowid );
 
     CALENDAR_DAY_DEBUG_LOG("UPDATE query: %s", sql );
@@ -409,7 +426,7 @@ void calendar_create_update_date( void ) {
                             "day=" + calendar_create_day + "," +
                             "hour=" + lv_dropdown_get_selected( calendar_create_hour_list ) + "," +
                             "min=" + lv_dropdown_get_selected( calendar_create_min_list ) * 15 + "," +
-                            "content='" + lv_textarea_get_text( claendar_create_textfield ) + "' " +
+                            "content='" + calendar_sql_escape( lv_textarea_get_text( claendar_create_textfield ) ) + "' " +
                             "WHERE rowid == " + calendar_create_edit_rowid + ";";
     CALENDAR_DAY_DEBUG_LOG("UPDATE query: %s", sql.c_str() );
     /**
@@ -429,6 +446,7 @@ void calendar_create_insert_date( void ) {
     snprintf( date, sizeof( date ),"%04d%02d%02d%02d%02d", calendar_create_year, calendar_create_month, calendar_create_day, lv_dropdown_get_selected( calendar_create_hour_list ), lv_dropdown_get_selected( calendar_create_min_list ) * 15 );
 #ifdef NATIVE_64BIT
     char sql[512]="";
+    String note = calendar_sql_escape( lv_textarea_get_text( claendar_create_textfield ) );
     snprintf( sql, sizeof( sql ),   "INSERT INTO calendar VALUES ( %s, %d, %d, %d, %d, %d, '%s');" ,
                                     date,
                                     calendar_create_year, 
@@ -436,7 +454,7 @@ void calendar_create_insert_date( void ) {
                                     calendar_create_day,
                                     lv_dropdown_get_selected( calendar_create_hour_list ),
                                     lv_dropdown_get_selected( calendar_create_min_list ) * 15,
-                                    lv_textarea_get_text( claendar_create_textfield ) );
+                                    note.c_str() );
 
     CALENDAR_DAY_DEBUG_LOG("UPDATE query: %s", sql );
     /**
@@ -453,7 +471,7 @@ void calendar_create_insert_date( void ) {
                             calendar_create_day + "," +
                             lv_dropdown_get_selected( calendar_create_hour_list ) + "," +
                             lv_dropdown_get_selected( calendar_create_min_list ) * 15 + "," +
-                            "'" + lv_textarea_get_text( claendar_create_textfield ) + "'" +
+                            "'" + calendar_sql_escape( lv_textarea_get_text( claendar_create_textfield ) ) + "'" +
                             ");";
 
     CALENDAR_DAY_DEBUG_LOG("UPDATE query: %s", sql.c_str() );

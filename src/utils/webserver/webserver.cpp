@@ -21,6 +21,7 @@
  */
 #include "webserver.h"
 #include "config.h"
+#include "hardware/wifictl.h"
 
 #if defined( ENABLE_WEBSERVER )
     #ifdef NATIVE_64BIT
@@ -38,6 +39,8 @@
         #include <ESP32SSDP.h>
 
         AsyncWebServer asyncserver( WEBSERVERPORT );
+        static const char *web_user = "";
+        static const char *web_pass = "";
         TaskHandle_t _WEBSERVER_Task;
         AsyncWebHandler mHandler_SPIFFSEditor;
         SPIFFSEditor * mSPIFFSEditor = nullptr;
@@ -142,6 +145,12 @@
     *
     */
     void asyncwebserver_start(void){
+    web_user = wifictl_get_ftp_user();
+    web_pass = wifictl_get_ftp_pass();
+    if ( web_user == NULL || web_pass == NULL || web_user[ 0 ] == '\0' || web_pass[ 0 ] == '\0' ) {
+        log_e("webserver not started, set an ftp user and password first");
+        return;
+    }
     asyncserver.on("/index.htm", HTTP_GET, [](AsyncWebServerRequest *request) {
         String html = (String) "<!DOCTYPE html>"
         "<html>"
@@ -319,7 +328,7 @@
     setFsEditorFilesystem(SPIFFS);
 
     asyncserver.rewrite("/", "/index.htm");
-    asyncserver.serveStatic("/", SPIFFS, "/");
+    asyncserver.serveStatic("/", SPIFFS, "/").setAuthentication( web_user, web_pass );
 
     asyncserver.onNotFound([](AsyncWebServerRequest *request){
         Serial.printf( "NOT_FOUND: ");
@@ -370,7 +379,6 @@
     asyncserver.onFileUpload([](AsyncWebServerRequest *request, const String& filename, size_t index, uint8_t *data, size_t len, bool final){
         if(!index)
         Serial.printf( "UploadStart: %s\n", filename.c_str());
-        Serial.printf("%s", (const char*)data);
         if(final)
         Serial.printf( "UploadEnd: %s (%u)\n", filename.c_str(), index+len);
     });
@@ -379,26 +387,40 @@
         if(!index) {
         Serial.printf( "BodyStart: %u\n", total);
         }
-        Serial.printf( "%s", (const char*)data);
         if(index + len == total) {
         Serial.printf( "BodyEnd: %u\n", total);
         }
     });
 
     asyncserver.on("/reset", HTTP_GET, []( AsyncWebServerRequest * request ) {
+        if ( !request->authenticate( web_user, web_pass ) ) {
+            return request->requestAuthentication();
+        }
         request->send(200, "text/plain", "Reset\r\n" );
         delay(3000);
         ESP.restart();    
     });
 
     asyncserver.on("/update", HTTP_GET, [](AsyncWebServerRequest * request) {
+        if ( !request->authenticate( web_user, web_pass ) ) {
+            return request->requestAuthentication();
+        }
         request->send(200, "text/html", serverIndex);
     });
 
     asyncserver.on(
         "/update", HTTP_POST,
-        [](AsyncWebServerRequest *request) {},
-        [](AsyncWebServerRequest *request, const String &filename, size_t index, uint8_t *data, size_t len, bool final) { handleUpdate(request, filename, index, data, len, final); }
+        [](AsyncWebServerRequest *request) {
+            if ( !request->authenticate( web_user, web_pass ) ) {
+                request->requestAuthentication();
+            }
+        },
+        [](AsyncWebServerRequest *request, const String &filename, size_t index, uint8_t *data, size_t len, bool final) {
+            if ( !request->authenticate( web_user, web_pass ) ) {
+                return;
+            }
+            handleUpdate(request, filename, index, data, len, final);
+        }
     );
 
     asyncserver.on("/description.xml", HTTP_GET, [](AsyncWebServerRequest *request) {
@@ -464,7 +486,7 @@
         asyncserver.removeHandler(&mHandler_SPIFFSEditor);
         if(mSPIFFSEditor!=nullptr)
             delete mSPIFFSEditor;  
-        mSPIFFSEditor = new SPIFFSEditor(fs);
+        mSPIFFSEditor = new SPIFFSEditor( fs, web_user, web_pass );
         log_d("asyncserver.addHandler");
         mHandler_SPIFFSEditor = asyncserver.addHandler(mSPIFFSEditor);
     }

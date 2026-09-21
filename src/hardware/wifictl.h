@@ -159,6 +159,11 @@
      */
     bool wifictl_get_ftpserver( void );
     /**
+     * @brief ftp account stored in the wifi config. Empty string if config is not loaded.
+     */
+    const char *wifictl_get_ftp_user( void );
+    const char *wifictl_get_ftp_pass( void );
+    /**
      * @brief   set the current werbserver configuration
      * 
      * @param   ftpserver   true means ftpserver enable, false means ftpserver disable

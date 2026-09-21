@@ -47,5 +47,11 @@
      * @brief take gui control to make LVGL threas safe
      */    
     void gui_give( void );
+    /**
+     * @brief run fn(arg) on the powermgm task, where the LVGL lock is already held.
+     *        fn must not call gui_take. arg stays owned by the caller until fn returns.
+     *        On the powermgm task, fn runs before this returns.
+     */
+    bool gui_dispatch( void ( *fn )( void *arg ), void *arg );
 
 #endif // _STATUSBAR_H

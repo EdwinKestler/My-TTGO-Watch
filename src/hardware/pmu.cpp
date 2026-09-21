@@ -803,10 +803,6 @@ int32_t pmu_get_battery_percent( void ) {
         #elif defined( LILYGO_WATCH_2020_V1 ) || defined( LILYGO_WATCH_2020_V2 ) || defined( LILYGO_WATCH_2020_V3 )
             TTGOClass *ttgo = TTGOClass::getWatch();
 
-            if ( ttgo->power->getBattChargeCoulomb() < ttgo->power->getBattDischargeCoulomb() || ttgo->power->getBattVoltage() < 3200 ) {
-                ttgo->power->ClearCoulombcounter();
-            }
-
             if ( pmu_get_calculated_percent() ) {
                 percent = ( ttgo->power->getCoulombData() / pmu_config.designed_battery_cap ) * 100;
             }
@@ -835,16 +831,20 @@ static int32_t pmu_get_voltage2percent( float mV ) {
      */
     const float QcmMain[] =     { 3000, 3490, 3680, 3745, 3780, 3810, 3845, 3890, 3950, 4050, 4220 };
     size_t size = ( sizeof( QcmMain ) / sizeof( float ) ) - 1;
-    float Qcm[ size ];
+    float Qcm[ size + 1 ];
     /**
      * calc the table scale factor
      */
-    if( pmu_config.battery_voltage_highest < pmu_config.battery_voltage_lowest ) {
+    if( pmu_config.battery_voltage_highest <= pmu_config.battery_voltage_lowest ) {
         pmu_config.battery_voltage_highest = QcmMain[ size ];
         pmu_config.battery_voltage_lowest = QcmMain[ 0 ];
         log_w("lowest and highest battery voltage not valid, reset");
     }
-    float scale = ( pmu_config.battery_voltage_highest - pmu_config.battery_voltage_lowest ) / ( QcmMain[ size ] - QcmMain[ 0 ] );
+    float span = QcmMain[ size ] - QcmMain[ 0 ];
+    if ( span <= 0.0f ) {
+        return( 0 );
+    }
+    float scale = ( pmu_config.battery_voltage_highest - pmu_config.battery_voltage_lowest ) / span;
     /**
      * scale the table into a new table
      */
@@ -858,9 +858,15 @@ static int32_t pmu_get_voltage2percent( float mV ) {
             break;
         i--;
     }
+    if ( i >= (int)size ) {
+        return( 100 );
+    }
 
     float vol_section = ( Qcm[ i + 1 ] - Qcm[ i ] ) / ( 100.0 / size );
     float div = i * ( 100.0 / size );
+    if ( vol_section == 0.0f ) {
+        return( (int32_t)div );
+    }
     percent = constrain( div + ( ( mV - Qcm[ i ] ) / vol_section ), 0.0, 100.0 );
     log_i("voltage: %.0fmV, percent: %d%%", mV, percent );
     return( percent );
@@ -1038,10 +1044,7 @@ float pmu_get_vbus_voltage( void ) {
     #else
         #if defined( M5PAPER )
         #elif defined( M5CORE2 )
-            voltage = 0.0;
-            while( voltage == 0.0 ) {
-                voltage = M5.Axp.GetVBusVoltage() * 1000.0;
-            }
+            voltage = M5.Axp.GetVBusVoltage() * 1000.0;
         #elif defined( LILYGO_WATCH_2020_V1 ) || defined( LILYGO_WATCH_2020_V2 ) || defined( LILYGO_WATCH_2020_V3 )
             TTGOClass *ttgo = TTGOClass::getWatch();
             voltage = ttgo->power->getVbusVoltage();

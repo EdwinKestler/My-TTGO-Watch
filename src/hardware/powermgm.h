@@ -58,6 +58,10 @@
      */
     void powermgm_loop( void );
     /**
+     * @brief true when the caller is the task that runs powermgm_loop
+     */
+    bool powermgm_on_loop_task( void );
+    /**
      * @brief trigger a power managemt event
      * 
      * @param   bits    event to trigger, example: POWERMGM_WIFI_ON_REQUEST for switch an WiFi

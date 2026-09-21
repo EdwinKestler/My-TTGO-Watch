@@ -470,10 +470,10 @@ void kodi_remote_get_active_player_item() {
                         }
                         
                         lv_label_set_text( kodi_remote_artist, artistList.c_str() );
-                    } else {
-                        lv_label_set_text( kodi_remote_artist, doc["result"]["item"]["artist"] );
+                    } else if ( doc["result"]["item"]["artist"].is<const char *>() ) {
+                        const char *artist = doc["result"]["item"]["artist"];
+                        lv_label_set_text( kodi_remote_artist, artist ? artist : "" );
                     }
-                    lv_label_set_text( kodi_remote_artist, doc["result"]["item"]["artist"] );
                     lv_obj_align( kodi_remote_artist, kodi_remote_player_main_tile, LV_ALIGN_IN_TOP_LEFT, 10, 10 );
                 } else {
                     lv_label_set_text( kodi_remote_artist, "" );

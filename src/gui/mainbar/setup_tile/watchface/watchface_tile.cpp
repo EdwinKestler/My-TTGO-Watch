@@ -921,7 +921,7 @@ void watchface_app_image_update( tm &info ) {
                     }
                 }
                 else {
-                    if ( watchface_theme_config->dial.label[ i ].hide_interval > 0 ) {
+                    if ( watchface_theme_config->dial.image[ i ].hide_interval > 0 ) {
                         lv_obj_set_hidden( watchface_image[ i ], false );
                     }
                     else {

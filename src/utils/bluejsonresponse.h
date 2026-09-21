@@ -43,8 +43,13 @@ public:
 
     void send() {
         char buf[BLUETOOTH_MAX_RESPONSE_SIZE+2];
-        auto len = serializeJson(*this, buf + 1, BLUETOOTH_MAX_RESPONSE_SIZE) + 1;
-        buf[0] = buf[len++] = '\x03';
+        size_t written = serializeJson(*this, buf + 1, BLUETOOTH_MAX_RESPONSE_SIZE);
+        if ( written == 0 || written >= BLUETOOTH_MAX_RESPONSE_SIZE ) {
+            return;
+        }
+        size_t len = written + 1;
+        buf[0] = '\x03';
+        buf[len++] = '\x03';
         buf[len] = '\0';
         int maxp = BLUETOOTH_MAX_TRANSMISSION_SIZE;
 

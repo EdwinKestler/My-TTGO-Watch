@@ -23,6 +23,7 @@
 #include <stdio.h>
 #include "lvgl.h"
 #include "gui.h"
+#include "hardware/powermgm.h"
 #include "statusbar.h"
 #include "quickbar.h"
 #include "screenshot.h"
@@ -117,6 +118,30 @@ lv_obj_t *img_bin = NULL;
 static volatile bool force_redraw = false;
 static volatile int lvgl_thread_guard_catcher = 1;
 
+#ifndef NATIVE_64BIT
+    typedef struct {
+        void ( *fn )( void *arg );
+        void *arg;
+    } gui_dispatch_job_t;
+
+    static QueueHandle_t gui_dispatch_queue = NULL;
+
+    static void gui_dispatch_drain( void ) {
+        gui_dispatch_job_t job;
+        int drained = 0;
+
+        if ( gui_dispatch_queue == NULL ) {
+            return;
+        }
+        while ( drained < 32 && xQueueReceive( gui_dispatch_queue, &job, 0 ) == pdTRUE ) {
+            drained++;
+            if ( job.fn ) {
+                job.fn( job.arg );
+            }
+        }
+    }
+#endif
+
 bool gui_powermgm_lvgl_guard_take_cb( EventBits_t event, void *arg );
 bool gui_powermgm_lvgl_guard_give_cb( EventBits_t event, void *arg );
 bool gui_powermgm_event_cb( EventBits_t event, void *arg );
@@ -126,6 +151,7 @@ void gui_setup( void ) {
     #ifdef NATIVE_64BIT
     #else
         xGUI_SemaphoreMutex = xSemaphoreCreateMutex();
+        gui_dispatch_queue = xQueueCreate( 24, sizeof( gui_dispatch_job_t ) );
     #endif
     gui_give();
     gui_take();
@@ -226,6 +252,9 @@ void gui_setup( void ) {
 
 bool gui_powermgm_lvgl_guard_take_cb( EventBits_t event, void *arg ) {
     gui_take();
+#ifndef NATIVE_64BIT
+    gui_dispatch_drain();
+#endif
     return( true );
 }
 
@@ -247,6 +276,30 @@ void gui_give( void ) {
     #else
         xSemaphoreGive( xGUI_SemaphoreMutex );
     #endif
+}
+
+bool gui_dispatch( void ( *fn )( void *arg ), void *arg ) {
+    if ( fn == NULL ) {
+        return( false );
+    }
+#ifdef NATIVE_64BIT
+    fn( arg );
+    return( true );
+#else
+    if ( gui_dispatch_queue == NULL || powermgm_on_loop_task() ) {
+        fn( arg );
+        return( true );
+    }
+
+    gui_dispatch_job_t job;
+    job.fn = fn;
+    job.arg = arg;
+    if ( xQueueSend( gui_dispatch_queue, &job, 0 ) != pdTRUE ) {
+        log_e("gui dispatch queue full");
+        return( false );
+    }
+    return( true );
+#endif
 }
 
 bool gui_powermgm_event_cb( EventBits_t event, void *arg ) {

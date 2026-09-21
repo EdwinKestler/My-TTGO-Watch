@@ -129,7 +129,7 @@ void mainbar_add_current_tile_to_history( lv_anim_enable_t anim ) {
      */
     ASSERT( mainbar, "main not initialized" );
 
-    if ( mainbar_history->entrys < MAINBAR_MAX_HISTORY ) {
+    if ( mainbar_history->entrys < MAINBAR_MAX_HISTORY - 1 ) {
         /**
          * get current tile
          */
@@ -497,10 +497,11 @@ void mainbar_jump_to_tilenumber( uint32_t tile_number, lv_anim_enable_t anim, bo
     /**
      * check if tile alread in mainbar history to prevent loops
      */
-    for ( int i = 0 ; i < mainbar_history->entrys; i++ ) {
+    for ( int i = 1 ; i <= mainbar_history->entrys; i++ ) {
         if ( mainbar_history->tile[ i ].x == x && mainbar_history->tile[ i ].y == y ) {
-            MAINBAR_INFO_LOG("current tile already in mainbar_history");
-            return;
+            MAINBAR_INFO_LOG("current tile already in mainbar_history, pop to %d", i - 1 );
+            mainbar_history->entrys = i - 1;
+            break;
         }
     }
     /**

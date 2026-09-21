@@ -8,7 +8,7 @@
 #ifndef JSONCONFIG_H_
 #define JSONCONFIG_H_
 
-#define MAX_OPTION_NAME_LENGTH 12
+#define MAX_OPTION_NAME_LENGTH 32
 #define MAX_OPTIONS_COUNT 24
 
 #include "events.h"

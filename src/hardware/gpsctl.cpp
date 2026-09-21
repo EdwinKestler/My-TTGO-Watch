@@ -23,6 +23,8 @@
 #include "gpsctl.h"
 #include "powermgm.h"
 #include "callback.h"
+#include "gui/gui.h"
+#include <stdlib.h>
 #include <math.h>
 #include <string.h>
 #include <ctype.h>
@@ -347,11 +349,41 @@ bool gpsctl_register_cb( EventBits_t event, CALLBACK_FUNC callback_func, const c
     return( callback_register( gpsctl_callback, event, callback_func, id ) );
 }
 
+typedef struct {
+    EventBits_t event;
+    bool has_data;
+    gps_data_t data;
+} gpsctl_gui_msg_t;
+
+static void gpsctl_gui_deliver( void *arg ) {
+    gpsctl_gui_msg_t *msg = (gpsctl_gui_msg_t *)arg;
+    callback_send( gpsctl_callback, msg->event, msg->has_data ? (void *)&msg->data : NULL );
+    free( msg );
+}
+
 bool gpsctl_send_cb( EventBits_t event, void *arg ) {
     /*
-     * call all callbacks with her event mask
+     * The powermgm GPS loop already holds the LVGL lock. fakegps calls
+     * gpsctl_set_location from its own task, so those listeners must run later.
      */
-    return( callback_send( gpsctl_callback, event, arg ) );
+    if ( powermgm_on_loop_task() ) {
+        return( callback_send( gpsctl_callback, event, arg ) );
+    }
+
+    gpsctl_gui_msg_t *msg = (gpsctl_gui_msg_t *)calloc( 1, sizeof( gpsctl_gui_msg_t ) );
+    if ( msg == NULL ) {
+        return( false );
+    }
+    msg->event = event;
+    if ( arg != NULL ) {
+        msg->has_data = true;
+        msg->data = *(gps_data_t *)arg;
+    }
+    if ( !gui_dispatch( gpsctl_gui_deliver, msg ) ) {
+        free( msg );
+        return( false );
+    }
+    return( true );
 }
 
 void gpsctl_on( void ) {

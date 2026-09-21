@@ -41,7 +41,7 @@
 #endif
 
 long stopwatch_milliseconds = 0;
-static time_t prev_time;
+static uint32_t prev_millis = 0;
 
 lv_obj_t *stopwatch_app_main_tile = NULL;
 lv_obj_t *stopwatch_app_main_stopwatchlabel = NULL;
@@ -154,7 +154,7 @@ static void stopwatch_app_main_update_stopwatchlabel()
 static void start_stopwatch_app_main_event_cb( lv_obj_t * obj, lv_event_t event ) {
     switch( event ) {
         case( LV_EVENT_CLICKED ):       // create an task that runs every secound
-                                        prev_time = time(0);
+                                        prev_millis = millis();
                                         if( !_stopwatch_app_task )
                                             _stopwatch_app_task = lv_task_create( stopwatch_app_task, 1000, LV_TASK_PRIO_MID, NULL );
                                         lv_obj_set_hidden(stopwatch_app_main_start_btn, true);
@@ -198,10 +198,9 @@ static void exit_stopwatch_app_main_event_cb( lv_obj_t * obj, lv_event_t event )
 
 void stopwatch_app_task( lv_task_t * task ) {
 
-    time_t now = time(0);
-    double dif_seconds = difftime(now,prev_time);
-    stopwatch_milliseconds += dif_seconds * 1000;
-    prev_time = now;
+    uint32_t now = millis();
+    stopwatch_milliseconds += (long)( now - prev_millis );
+    prev_millis = now;
 
     stopwatch_app_main_update_stopwatchlabel();
 }
