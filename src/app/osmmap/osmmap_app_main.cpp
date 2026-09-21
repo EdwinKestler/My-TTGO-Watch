@@ -68,8 +68,11 @@
     #include "gui/mainbar/setup_tile/watchface/watchface_tile.h"
 
     EventGroupHandle_t osmmap_event_handle = NULL;                  /** @brief osm tile image update event queue */
-    TaskHandle_t _osmmap_update_Task;                               /** @brief osm tile image update Task */
-    TaskHandle_t _osmmap_load_ahead_Task;                           /** @brief osm tile image update Task */
+    TaskHandle_t _osmmap_update_Task = NULL;                        /** @brief osm tile image update Task */
+    TaskHandle_t _osmmap_load_ahead_Task = NULL;                    /** @brief osm tile image update Task */
+    static volatile bool osmmap_update_alive = false;
+    static volatile bool osmmap_ahead_alive = false;
+    static volatile bool osmmap_cache_needs_clear = false;
 
     extern const uint8_t osm_server_json_start[] asm("_binary_src_utils_osm_map_osmtileserver_json_start");
     extern const uint8_t osm_server_json_end[] asm("_binary_src_utils_osm_map_osmtileserver_json_end");
@@ -409,6 +412,12 @@ static void osmmap_app_get_setting_menu_cb( lv_obj_t * obj, lv_event_t event ) {
  * the statusbar and icon.
  */
 void osmmap_main_tile_update_task( lv_task_t * task ) {
+#ifndef NATIVE_64BIT
+    if ( osmmap_cache_needs_clear && !osmmap_update_alive && !osmmap_ahead_alive ) {
+        osm_map_clear_cache( osmmap_location );
+        osmmap_cache_needs_clear = false;
+    }
+#endif
     /*
      * check if maintile alread initialized
      */
@@ -522,6 +531,7 @@ void osmmap_load_ahead_Task( void * pvParameters ) {
     }
 #else
     OSMMAP_APP_INFO_LOG("start osm map load ahead background task, heap: %d", ESP.getFreeHeap() );
+    osmmap_ahead_alive = true;
     while( true ) {
         /**
          * check for  load ahead request
@@ -533,6 +543,9 @@ void osmmap_load_ahead_Task( void * pvParameters ) {
             OSMMAP_APP_LOG("start load ahead update handler");
             xEventGroupClearBits( osmmap_event_handle, OSM_APP_LOAD_AHEAD_REQUEST );
             while ( osm_map_load_tiles_ahead( osmmap_location ) ) {
+                if ( xEventGroupGetBits( osmmap_event_handle ) & OSM_APP_TASK_EXIT_REQUEST ) {
+                    break;
+                }
                 /**
                  * block this task for 125ms
                  */
@@ -551,6 +564,8 @@ void osmmap_load_ahead_Task( void * pvParameters ) {
         vTaskDelay( 25 );
     }
     OSMMAP_APP_INFO_LOG("finsh osm map load ahead background task, heap: %d", ESP.getFreeHeap() );
+    osmmap_ahead_alive = false;
+    _osmmap_load_ahead_Task = NULL;
     vTaskDelete( NULL );    
 #endif
 }
@@ -589,6 +604,7 @@ void osmmap_update_Task( void * pvParameters ) {
     }
 #else
     OSMMAP_APP_INFO_LOG("start osm map tile background update task, heap: %d", ESP.getFreeHeap() );
+    osmmap_update_alive = true;
     while( true ) {
         /**
          * check if a tile image update is requested
@@ -640,6 +656,8 @@ void osmmap_update_Task( void * pvParameters ) {
         vTaskDelay( 25 );
     }
     OSMMAP_APP_INFO_LOG("finsh osm map tile background update task, heap: %d", ESP.getFreeHeap() );
+    osmmap_update_alive = false;
+    _osmmap_update_Task = NULL;
     vTaskDelete( NULL );    
 #endif
 }
@@ -884,20 +902,25 @@ void osmmap_activate_cb( void ) {
     /**
      * start background osm tile image update Task
      */
-    xEventGroupClearBits( osmmap_event_handle, OSM_APP_TASK_EXIT_REQUEST );
-    xTaskCreate(    osmmap_update_Task,      /* Function to implement the task */
-                    "osmmap update Task",    /* Name of the task */
-                    5000,                            /* Stack size in words */
-                    NULL,                            /* Task input parameter */
-                    1,                               /* Priority of the task */
-                    &_osmmap_update_Task );  /* Task handle. */
+    if ( osmmap_update_alive || osmmap_ahead_alive ) {
+        xEventGroupClearBits( osmmap_event_handle, OSM_APP_TASK_EXIT_REQUEST );
+    }
+    else {
+        xEventGroupClearBits( osmmap_event_handle, OSM_APP_TASK_EXIT_REQUEST );
+        xTaskCreate(    osmmap_update_Task,      /* Function to implement the task */
+                        "osmmap update Task",    /* Name of the task */
+                        5000,                            /* Stack size in words */
+                        NULL,                            /* Task input parameter */
+                        1,                               /* Priority of the task */
+                        &_osmmap_update_Task );  /* Task handle. */
 
-    xTaskCreate(    osmmap_load_ahead_Task,      /* Function to implement the task */
-                    "osmmap load ahead Task",    /* Name of the task */
-                    5000,                            /* Stack size in words */
-                    NULL,                            /* Task input parameter */
-                    1,                               /* Priority of the task */
-                    &_osmmap_load_ahead_Task );  /* Task handle. */
+        xTaskCreate(    osmmap_load_ahead_Task,      /* Function to implement the task */
+                        "osmmap load ahead Task",    /* Name of the task */
+                        5000,                            /* Stack size in words */
+                        NULL,                            /* Task input parameter */
+                        1,                               /* Priority of the task */
+                        &_osmmap_load_ahead_Task );  /* Task handle. */
+    }
 #endif
     osmmap_update_request();
     lv_img_cache_invalidate_src( osmmap_app_tile_img );
@@ -924,19 +947,14 @@ void osmmap_hibernate_cb( void ) {
     watchface_enable_tile_after_wakeup( osmmap_block_watchface );
 #endif
     /**
-     * clear cache
-     */
-    osm_map_clear_cache( osmmap_location );
-    /**
-     * set osm app inactive
+     * set osm app inactive. Device tile tasks exit first, then the GUI task drops the cache.
      */
     osmmap_app_active = false;
-    /**
-     * stop background osm tile image update Task
-     */
 #ifdef NATIVE_64BIT
+    osm_map_clear_cache( osmmap_location );
     eventmask |= OSM_APP_TASK_EXIT_REQUEST;
 #else
+    osmmap_cache_needs_clear = true;
     xEventGroupSetBits( osmmap_event_handle, OSM_APP_TASK_EXIT_REQUEST );
 #endif
     powermgm_set_normal_mode();

@@ -53,5 +53,10 @@
      *        On the powermgm task, fn runs before this returns.
      */
     bool gui_dispatch( void ( *fn )( void *arg ), void *arg );
+    /**
+     * @brief same as gui_dispatch, but returns only after fn has run.
+     *        arg may live on the caller's stack. Do not call this from an LVGL event.
+     */
+    bool gui_dispatch_sync( void ( *fn )( void *arg ), void *arg );
 
 #endif // _STATUSBAR_H

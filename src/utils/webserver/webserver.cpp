@@ -152,6 +152,10 @@
         return;
     }
     asyncserver.on("/index.htm", HTTP_GET, [](AsyncWebServerRequest *request) {
+        if ( !request->authenticate( web_user, web_pass ) ) {
+            request->requestAuthentication();
+            return;
+        }
         String html = (String) "<!DOCTYPE html>"
         "<html>"
         "<frameset cols=\"300, *\">"
@@ -163,6 +167,10 @@
     });
 
     asyncserver.on("/nav.htm", HTTP_GET, [](AsyncWebServerRequest *request) {
+        if ( !request->authenticate( web_user, web_pass ) ) {
+            request->requestAuthentication();
+            return;
+        }
         String html = (String) "<!DOCTYPE html>"
         "<html><head>"
         "<meta http-equiv='Content-type' content='text/html; charset=utf-8'>"
@@ -189,6 +197,10 @@
     });
 
     asyncserver.on("/info", HTTP_GET, [](AsyncWebServerRequest *request) {
+        if ( !request->authenticate( web_user, web_pass ) ) {
+            request->requestAuthentication();
+            return;
+        }
         FlashMode_t mode = ESP.getFlashChipMode();
         uint32_t FreeSketchSpace = ESP.getFreeSketchSpace();
         uint32_t SketchFull = ESP.getSketchSize() + FreeSketchSpace;
@@ -232,6 +244,10 @@
     });
 
     asyncserver.on("/memory", HTTP_GET, [](AsyncWebServerRequest *request) {
+        if ( !request->authenticate( web_user, web_pass ) ) {
+            request->requestAuthentication();
+            return;
+        }
         String html = (String) "<html><head><meta charset=\"utf-8\"></head><body><h3>Memory Details</h3>" +
                     "<b>Heap size: </b>" + ESP.getHeapSize() + "<br>" +
                     "<b>Heap free: </b>" + ESP.getFreeHeap() + "<br>" +
@@ -247,6 +263,10 @@
 
     /*
     asyncserver.on("/battery", HTTP_GET, [](AsyncWebServerRequest *request) {
+        if ( !request->authenticate( web_user, web_pass ) ) {
+            request->requestAuthentication();
+            return;
+        }
         TTGOClass * ttgo = TTGOClass::getWatch();
 
         String html = (String) "<html><head><meta charset=\"utf-8\"></head><body><h3>Battery Details</h3>" +
@@ -265,6 +285,10 @@
     });
 
     asyncserver.on("/touch", HTTP_GET, [](AsyncWebServerRequest *request) {
+        if ( !request->authenticate( web_user, web_pass ) ) {
+            request->requestAuthentication();
+            return;
+        }
         TTGOClass * ttgo = TTGOClass::getWatch();
 
         String html;
@@ -290,6 +314,10 @@
     });
 
     asyncserver.on("/temp", HTTP_GET, [](AsyncWebServerRequest *request) {
+        if ( !request->authenticate( web_user, web_pass ) ) {
+            request->requestAuthentication();
+            return;
+        }
         TTGOClass * ttgo = TTGOClass::getWatch();
 
         String html = (String) "<html><head><meta charset=\"utf-8\"></head><body><h3>Device Temperature</h3>" +
@@ -303,6 +331,10 @@
     });
     */
     asyncserver.on("/network", HTTP_GET, [](AsyncWebServerRequest *request) {
+        if ( !request->authenticate( web_user, web_pass ) ) {
+            request->requestAuthentication();
+            return;
+        }
         String html = (String) "<html><head><meta charset=\"utf-8\"></head><body><h3>Network</h3>" +
                     "<b>IP Addr: </b>" + WiFi.localIP().toString() + "<br>" +
                     "<b>MAC: </b>" + WiFi.macAddress() + "<br>" +
@@ -331,6 +363,10 @@
     asyncserver.serveStatic("/", SPIFFS, "/").setAuthentication( web_user, web_pass );
 
     asyncserver.onNotFound([](AsyncWebServerRequest *request){
+        if ( !request->authenticate( web_user, web_pass ) ) {
+            request->requestAuthentication();
+            return;
+        }
         Serial.printf( "NOT_FOUND: ");
         if(request->method() == HTTP_GET)
         Serial.printf( "GET");
@@ -411,6 +447,10 @@
     asyncserver.on(
         "/update", HTTP_POST,
         [](AsyncWebServerRequest *request) {
+        if ( !request->authenticate( web_user, web_pass ) ) {
+            request->requestAuthentication();
+            return;
+        }
             if ( !request->authenticate( web_user, web_pass ) ) {
                 request->requestAuthentication();
             }
@@ -424,6 +464,10 @@
     );
 
     asyncserver.on("/description.xml", HTTP_GET, [](AsyncWebServerRequest *request) {
+        if ( !request->authenticate( web_user, web_pass ) ) {
+            request->requestAuthentication();
+            return;
+        }
         byte mac[6];
         WiFi.macAddress(mac);
         char tmp[6 + 1];

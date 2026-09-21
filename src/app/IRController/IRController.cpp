@@ -50,7 +50,8 @@ static int registed = app_autocall_function( &IRController_setup, 8 );          
         // Use https://lvgl.io/tools/imageconverter to convert your images and set "true color with alpha"
         LV_IMG_DECLARE(IRController_64px);
 
-        static lv_point_t* valid_pos;
+        static lv_point_t* valid_pos = NULL;
+        static lv_obj_t *ir_desks = NULL;
         static bool IRController_bluetooth_event_cb(EventBits_t event, void *arg);
 
         IRConfig irConfig;
@@ -79,8 +80,25 @@ static int registed = app_autocall_function( &IRController_setup, 8 );          
             if (settingsAction == IRControlSettingsAction::Load)
                 irConfig.load();
 
+            for (int j = 0; j < irConfig.totalCount(); j++) {
+                InfraButton *btnConfig = irConfig.get(j);
+                if (btnConfig != nullptr && btnConfig->uiButton.isCreated()) {
+                    btnConfig->uiButton.free();
+                    btnConfig->uiButton = Button();
+                }
+            }
+            if (ir_desks != NULL) {
+                lv_obj_del(ir_desks);
+                ir_desks = NULL;
+            }
+            if (valid_pos != NULL) {
+                free(valid_pos);
+                valid_pos = NULL;
+            }
+
             AppPage& main = irController.mainPage();
             lv_obj_t *desks = lv_tileview_create(main.handle(), NULL);
+            ir_desks = desks;
             lv_obj_set_size(desks, LV_HOR_RES, LV_VER_RES);
             lv_page_set_scrollbar_mode(desks, LV_SCROLLBAR_MODE_OFF);
             lv_obj_add_style(desks, LV_OBJ_PART_MAIN, ws_get_mainbar_style());

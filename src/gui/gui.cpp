@@ -122,6 +122,7 @@ static volatile int lvgl_thread_guard_catcher = 1;
     typedef struct {
         void ( *fn )( void *arg );
         void *arg;
+        SemaphoreHandle_t done;
     } gui_dispatch_job_t;
 
     static QueueHandle_t gui_dispatch_queue = NULL;
@@ -137,6 +138,9 @@ static volatile int lvgl_thread_guard_catcher = 1;
             drained++;
             if ( job.fn ) {
                 job.fn( job.arg );
+            }
+            if ( job.done ) {
+                xSemaphoreGive( job.done );
             }
         }
     }
@@ -294,10 +298,44 @@ bool gui_dispatch( void ( *fn )( void *arg ), void *arg ) {
     gui_dispatch_job_t job;
     job.fn = fn;
     job.arg = arg;
+    job.done = NULL;
     if ( xQueueSend( gui_dispatch_queue, &job, 0 ) != pdTRUE ) {
         log_e("gui dispatch queue full");
         return( false );
     }
+    return( true );
+#endif
+}
+
+bool gui_dispatch_sync( void ( *fn )( void *arg ), void *arg ) {
+    if ( fn == NULL ) {
+        return( false );
+    }
+#ifdef NATIVE_64BIT
+    fn( arg );
+    return( true );
+#else
+    if ( gui_dispatch_queue == NULL || powermgm_on_loop_task() ) {
+        fn( arg );
+        return( true );
+    }
+
+    SemaphoreHandle_t done = xSemaphoreCreateBinary();
+    if ( done == NULL ) {
+        return( false );
+    }
+
+    gui_dispatch_job_t job;
+    job.fn = fn;
+    job.arg = arg;
+    job.done = done;
+    if ( xQueueSend( gui_dispatch_queue, &job, pdMS_TO_TICKS( 1000 ) ) != pdTRUE ) {
+        log_e("gui dispatch queue full");
+        vSemaphoreDelete( done );
+        return( false );
+    }
+    xSemaphoreTake( done, portMAX_DELAY );
+    vSemaphoreDelete( done );
     return( true );
 #endif
 }

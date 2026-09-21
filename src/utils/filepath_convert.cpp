@@ -18,32 +18,52 @@
     #endif
 #endif
 
+#ifdef NATIVE_64BIT
+static bool filepath_has_dotdot( const char *path ) {
+    const char *cursor = path;
+    if ( cursor == NULL ) {
+        return( true );
+    }
+    while ( *cursor != '\0' ) {
+        if ( cursor[ 0 ] == '.' && cursor[ 1 ] == '.' && ( cursor[ 2 ] == '/' || cursor[ 2 ] == '\0' ) ) {
+            if ( cursor == path || cursor[ -1 ] == '/' ) {
+                return( true );
+            }
+        }
+        cursor++;
+    }
+    return( false );
+}
+#endif
+
 char *filepath_convert( char * dst_str, int max_len, const char* local_path ) {
+    if ( dst_str != NULL && max_len > 0 ) {
+        dst_str[ 0 ] = '\0';
+    }
     #ifdef NATIVE_64BIT
+        struct passwd *pw = getpwuid( getuid() );
+        const char *home = ( pw != NULL ) ? pw->pw_dir : getenv( "HOME" );
+        if ( home == NULL || filepath_has_dotdot( local_path ) ) {
+            log_e("filepath rejected");
+            return( dst_str );
+        }
         char hedge_config_path[512] = "";
-        /**
-         * check config path
-         */
-        if ( getenv("HOME") )
-            snprintf( hedge_config_path, sizeof( hedge_config_path ), "%s/.hedge", getpwuid(getuid())->pw_dir );
-        /**
-         * create config dir if not exist
-         */
-        if ( !opendir( hedge_config_path ) ) {
+        snprintf( hedge_config_path, sizeof( hedge_config_path ), "%s/.hedge", home );
+        DIR *hedge_dir = opendir( hedge_config_path );
+        if ( hedge_dir == NULL ) {
             log_i("create config path and dir");
             mkdir( hedge_config_path, 0700 );
-            snprintf( hedge_config_path, sizeof( hedge_config_path ), "%s/.hedge/spiffs", getpwuid(getuid())->pw_dir );
+            snprintf( hedge_config_path, sizeof( hedge_config_path ), "%s/.hedge/spiffs", home );
             mkdir( hedge_config_path, 0700 );
-            snprintf( hedge_config_path, sizeof( hedge_config_path ), "%s/.hedge/sd", getpwuid(getuid())->pw_dir );
+            snprintf( hedge_config_path, sizeof( hedge_config_path ), "%s/.hedge/sd", home );
             mkdir( hedge_config_path, 0700 );
         }
-        /**
-         * convert local path to native machine path
-         */
-        if ( getenv("HOME") )
-            snprintf( dst_str, max_len, "%s/.hedge/%s", getpwuid(getuid())->pw_dir, local_path );
+        else {
+            closedir( hedge_dir );
+        }
+        snprintf( dst_str, max_len, "%s/.hedge/%s", home, local_path != NULL ? local_path : "" );
     #else
-        snprintf( dst_str, max_len, "%s", local_path );
+        snprintf( dst_str, max_len, "%s", local_path != NULL ? local_path : "" );
     #endif
 
     return( dst_str );
