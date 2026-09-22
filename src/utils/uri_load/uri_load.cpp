@@ -199,34 +199,24 @@ bool uri_load_to_file( const char *uri, const char *path, const char *dest_filen
             /**
              * alloc memory for filename
              */
-            char *filename = NULL;
-            if ( dest_filename ) {
-                filename = (char*)MALLOC( strlen( path ) + strlen( dest_filename ) + 1 );
+            const char *leaf = dest_filename ? dest_filename : uri_load_dsc->filename;
+            if ( path == NULL ) {
+                path = "";
             }
-            else {
-                filename = (char*)MALLOC( strlen( path ) + strlen( uri_load_dsc->filename ) + 1 );
+            if ( leaf == NULL ) {
+                leaf = "";
             }
+            size_t filename_len = strlen( path ) + strlen( leaf ) + 1;
+            char *filename = (char*)MALLOC( filename_len );
             /**
              * check if alloc failed
              */
             if ( !filename ) {
-                /**
-                 * free uri_load_dsc
-                 */
                 uri_load_free_all( uri_load_dsc );
+                uri_load_dsc = NULL;
             }
             else {
-                /**
-                 * copy path and filename into a file location string
-                 */
-                if ( dest_filename ) {
-                    strncpy( filename, path, strlen( path ) + strlen( dest_filename ) + 1 );
-                    strncat( filename, dest_filename, strlen( path ) + strlen( dest_filename ) + 1 );
-                }
-                else {
-                    strncpy( filename, path, strlen( path ) + strlen( uri_load_dsc->filename ) + 1 );
-                    strncat( filename, uri_load_dsc->filename, strlen( path ) + strlen( uri_load_dsc->filename ) + 1 );
-                }
+                snprintf( filename, filename_len, "%s%s", path, leaf );
                 /**
                  * open file
                  */
@@ -265,13 +255,15 @@ bool uri_load_to_file( const char *uri, const char *path, const char *dest_filen
                     else {
                         retval = true;
                     }
+                    fclose( file );
                 }
                 else {
                     URI_LOAD_LOG("error open file: %s", filename );
                 }
-                fclose( file );
+                free( filename );
+                uri_load_free_all( uri_load_dsc );
+                uri_load_dsc = NULL;
             }
-            free( filename );
         }
     }
     else {
@@ -407,6 +399,7 @@ uri_load_dsc_t *uri_load_http_to_ram( uri_load_dsc_t *uri_load_dsc ) {
                 uint32_t bytes_left = uri_load_dsc->size;                           /** @brief download left byte counter */
                 uint8_t *data_write_p = uri_load_dsc->data;                         /** @brief write pointer for the raw file download */
                 WiFiClient *download_stream = download_client.getStreamPtr();       /** @brief get streampointer */
+                uint32_t stall_since = millis();
                 /**
                  * get download data
                  */
@@ -417,11 +410,19 @@ uri_load_dsc_t *uri_load_http_to_ram( uri_load_dsc_t *uri_load_dsc ) {
                     size_t size = download_stream->available();
                     if ( size > 0 ) {
                         size_t c = download_stream->readBytes( data_write_p, size < bytes_left ? size : bytes_left );
+                        if ( c == 0 ) {
+                            break;
+                        }
+                        stall_since = millis();
                         bytes_left -= c;
                         data_write_p = data_write_p + c;
                         if ( uri_load_dsc->progresscb ) {
                             uri_load_dsc->progresscb( ( 100 * ( uri_load_dsc->size - bytes_left ) ) / uri_load_dsc->size );
                         }
+                    }
+                    else if ( millis() - stall_since > 10000 ) {
+                        URI_LOAD_ERROR_LOG("download stalled");
+                        break;
                     }
                     else {
                         delay( 1 );
@@ -636,6 +637,7 @@ uri_load_dsc_t *uri_load_https_to_ram( uri_load_dsc_t *uri_load_dsc ) {
                 uint32_t bytes_left = uri_load_dsc->size;                           /** @brief download left byte counter */
                 uint8_t *data_write_p = uri_load_dsc->data;                         /** @brief write pointer for the raw file download */
                 WiFiClient *download_stream = download_client.getStreamPtr();       /** @brief get streampointer */
+                uint32_t stall_since = millis();
                 /**
                  * get download data
                  */
@@ -646,11 +648,19 @@ uri_load_dsc_t *uri_load_https_to_ram( uri_load_dsc_t *uri_load_dsc ) {
                     size_t size = download_stream->available();
                     if ( size > 0 ) {
                         size_t c = download_stream->readBytes( data_write_p, size < bytes_left ? size : bytes_left );
+                        if ( c == 0 ) {
+                            break;
+                        }
+                        stall_since = millis();
                         bytes_left -= c;
                         data_write_p = data_write_p + c;
                         if ( uri_load_dsc->progresscb ) {
                             uri_load_dsc->progresscb( ( 100 * ( uri_load_dsc->size - bytes_left ) ) / uri_load_dsc->size );
                         }
+                    }
+                    else if ( millis() - stall_since > 10000 ) {
+                        URI_LOAD_ERROR_LOG("download stalled");
+                        break;
                     }
                     else {
                         delay( 1 );
@@ -660,6 +670,7 @@ uri_load_dsc_t *uri_load_https_to_ram( uri_load_dsc_t *uri_load_dsc ) {
                     URI_LOAD_ERROR_LOG("download failed");
                     download_client.end();
                     client->stop();
+                    delete client;
                     uri_load_free_all( uri_load_dsc );
                     heap_caps_malloc_extmem_enable( 16 * 1024 );
                     return( NULL );
@@ -669,6 +680,7 @@ uri_load_dsc_t *uri_load_https_to_ram( uri_load_dsc_t *uri_load_dsc ) {
                 URI_LOAD_ERROR_LOG("data alloc failed, %d bytes", uri_load_dsc->size );
                 download_client.end();
                 client->stop();
+                delete client;
                 uri_load_free_all( uri_load_dsc );
                 heap_caps_malloc_extmem_enable( 16 * 1024 );
                 return( NULL );

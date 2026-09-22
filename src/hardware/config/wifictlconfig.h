@@ -52,6 +52,12 @@
         bool ftpserver = false;                             /** @brief enable on ftpserver */
         char ftpuser[32] = FTPSERVER_USER;                  /** @brief ftpserver username*/
         char ftppass[32] = FTPSERVER_PASSWORD;              /** @brief ftpserver password*/
+        /**
+         * @brief store the demo access point if it is missing or its password changed
+         *
+         * @return true when the network list changed and should be saved
+         */
+        bool ensure_demo_network( void );
         wifictl_networklist* networklist = NULL;            /** @brief network list config pointer */
         wifictl_networklist* networklist_tried = NULL;      /** @brief network list config pointer of networks a connection was tried */
 
@@ -69,7 +75,7 @@
         virtual bool onLoad(JsonDocument& document);
         virtual bool onSave(JsonDocument& document);
         virtual bool onDefault( void );
-        virtual size_t getJsonBufferSize() { return 2000; }
+        virtual size_t getJsonBufferSize() { return 8192; }
     };
 
 #endif // _WIFICTLCONFIG_H

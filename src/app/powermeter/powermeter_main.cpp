@@ -238,8 +238,8 @@ void powermeter_main_tile_setup( uint32_t tile_num ) {
 #endif
     wifictl_register_cb( WIFICTL_CONNECT_IP | WIFICTL_OFF_REQUEST | WIFICTL_OFF | WIFICTL_DISCONNECT , powermeter_wifictl_event_cb, "powermeter" );
     styles_register_cb( STYLE_CHANGE, powermeter_style_change_event_cb, "powermeter style event ");
-    // create an task that runs every secound
-    _powermeter_main_task = lv_task_create( powermeter_main_task, 250, LV_TASK_PRIO_MID, NULL );
+    // MQTT keepalive is many seconds; polling once a second is enough
+    _powermeter_main_task = lv_task_create( powermeter_main_task, 1000, LV_TASK_PRIO_MID, NULL );
 }
 
 bool powermeter_style_change_event_cb( EventBits_t event, void *arg ) {

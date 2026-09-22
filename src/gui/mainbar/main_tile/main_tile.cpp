@@ -266,14 +266,14 @@ static bool mainbar_pmu_event_cb( EventBits_t event, void *arg ) {
                     lv_obj_set_style_local_image_recolor( batteryicon, LV_IMG_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_WHITE );
                     if ( percent >= 75 ) { 
                         lv_img_set_src( batteryicon, LV_SYMBOL_BATTERY_FULL );
-                    } else if( percent >=50 && percent < 74) {
+                    } else if( percent >= 50 ) {
                         lv_img_set_src( batteryicon, LV_SYMBOL_BATTERY_3 );
-                    } else if( percent >=35 && percent < 49) {
+                    } else if( percent >= 35 ) {
                         lv_img_set_src( batteryicon, LV_SYMBOL_BATTERY_2 );
-                    } else if( percent >=15 && percent < 34) {
+                    } else if( percent >= 15 ) {
                         lv_img_set_src( batteryicon, LV_SYMBOL_BATTERY_1 );
                         lv_obj_set_style_local_image_recolor( batteryicon, LV_IMG_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_YELLOW );
-                    } else if( percent >=0 && percent < 14) {
+                    } else {
                         lv_img_set_src( batteryicon, LV_SYMBOL_BATTERY_EMPTY );
                         lv_obj_set_style_local_image_recolor( batteryicon, LV_IMG_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_RED );
                     }

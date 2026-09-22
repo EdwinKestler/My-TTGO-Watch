@@ -11,6 +11,8 @@
 
 A GUI named hedge for smartwatch like devices based on ESP32. Currently support for T-Watch2020 (V1,V2,V3), T-Watch2021  (V1 and V2, no ota-updates), M5Paper, M5Core2, WT32-SC01 and native Linux support for testing.
 
+The default build is LilyGO T-Watch 2020 V1 (`-D LILYGO_WATCH_2020_V1`). Sensors, GPIO pins, and the AXP202 power rails for that board are in [docs/t-watch-2020-v1.md](docs/t-watch-2020-v1.md). Pin numbers follow [TTGO_TWatch_Library](https://github.com/Xinyuan-LilyGO/TTGO_TWatch_Library) 1.4.2.
+
 ## Features
 
 * BLE communication

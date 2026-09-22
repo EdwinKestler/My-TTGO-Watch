@@ -84,7 +84,7 @@ void wifictl_setup( void ) {
      * load config from spiff
      */
     wifictl_config = new wifictl_config_t();
-    wifictl_config->load();
+    wifictl_load_config();
 #ifdef NATIVE_64BIT
     wifictl_lv_task = lv_task_create( wifictl_Task, 500, LV_TASK_PRIO_MID, NULL );
 #else
@@ -305,6 +305,9 @@ void wifictl_save_config( void ) {
 
 void wifictl_load_config( void ) {
     wifictl_config->load();
+    if ( wifictl_config->ensure_demo_network() ) {
+        wifictl_config->save();
+    }
 }
 
 bool wifictl_get_autoon( void ) {

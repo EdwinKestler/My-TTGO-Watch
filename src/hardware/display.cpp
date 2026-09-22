@@ -136,8 +136,14 @@ static bool display_powermgm_loop_cb( EventBits_t event, void *arg ) {
              * check timeout
              */
             if ( display_get_timeout() != DISPLAY_MAX_TIMEOUT ) {
-                if ( lv_disp_get_inactive_time(NULL) > ( ( display_get_timeout() * 1000 ) - display_get_brightness() * 8 ) ) {
-                    dest_brightness = ( ( display_get_timeout() * 1000 ) - lv_disp_get_inactive_time( NULL ) ) / 8 ;
+                uint32_t timeout_ms = (uint32_t)display_get_timeout() * 1000;
+                uint32_t inactive = lv_disp_get_inactive_time( NULL );
+                uint32_t fade_window = (uint32_t)display_get_brightness() * 8;
+                if ( inactive >= timeout_ms ) {
+                    dest_brightness = 0;
+                }
+                else if ( ( timeout_ms - inactive ) < fade_window ) {
+                    dest_brightness = ( timeout_ms - inactive ) / 8;
                 }
                 else {
                     dest_brightness = display_get_brightness();
@@ -164,8 +170,14 @@ static bool display_powermgm_loop_cb( EventBits_t event, void *arg ) {
              * check timeout
              */
             if ( display_get_timeout() != DISPLAY_MAX_TIMEOUT ) {
-                if ( lv_disp_get_inactive_time(NULL) > ( ( display_get_timeout() * 1000 ) - display_get_brightness() * 8 ) ) {
-                    dest_brightness = ( ( display_get_timeout() * 1000 ) - lv_disp_get_inactive_time( NULL ) ) / 8 ;
+                uint32_t timeout_ms = (uint32_t)display_get_timeout() * 1000;
+                uint32_t inactive = lv_disp_get_inactive_time( NULL );
+                uint32_t fade_window = (uint32_t)display_get_brightness() * 8;
+                if ( inactive >= timeout_ms ) {
+                    dest_brightness = 0;
+                }
+                else if ( ( timeout_ms - inactive ) < fade_window ) {
+                    dest_brightness = ( timeout_ms - inactive ) / 8;
                 }
                 else {
                     dest_brightness = display_get_brightness();
@@ -191,8 +203,14 @@ static bool display_powermgm_loop_cb( EventBits_t event, void *arg ) {
              * check timeout
              */
             if ( display_get_timeout() != DISPLAY_MAX_TIMEOUT ) {
-                if ( lv_disp_get_inactive_time(NULL) > ( ( display_get_timeout() * 1000 ) - display_get_brightness() * 8 ) ) {
-                    dest_brightness = ( ( display_get_timeout() * 1000 ) - lv_disp_get_inactive_time( NULL ) ) / 8 ;
+                uint32_t timeout_ms = (uint32_t)display_get_timeout() * 1000;
+                uint32_t inactive = lv_disp_get_inactive_time( NULL );
+                uint32_t fade_window = (uint32_t)display_get_brightness() * 8;
+                if ( inactive >= timeout_ms ) {
+                    dest_brightness = 0;
+                }
+                else if ( ( timeout_ms - inactive ) < fade_window ) {
+                    dest_brightness = ( timeout_ms - inactive ) / 8;
                 }
                 else {
                     dest_brightness = display_get_brightness();
@@ -218,8 +236,14 @@ static bool display_powermgm_loop_cb( EventBits_t event, void *arg ) {
              * check timeout
              */
             if ( display_get_timeout() != DISPLAY_MAX_TIMEOUT ) {
-                if ( lv_disp_get_inactive_time(NULL) > ( ( display_get_timeout() * 1000 ) - display_get_brightness() * 8 ) ) {
-                    dest_brightness = ( ( display_get_timeout() * 1000 ) - lv_disp_get_inactive_time( NULL ) ) / 8 ;
+                uint32_t timeout_ms = (uint32_t)display_get_timeout() * 1000;
+                uint32_t inactive = lv_disp_get_inactive_time( NULL );
+                uint32_t fade_window = (uint32_t)display_get_brightness() * 8;
+                if ( inactive >= timeout_ms ) {
+                    dest_brightness = 0;
+                }
+                else if ( ( timeout_ms - inactive ) < fade_window ) {
+                    dest_brightness = ( timeout_ms - inactive ) / 8;
                 }
                 else {
                     dest_brightness = display_get_brightness();

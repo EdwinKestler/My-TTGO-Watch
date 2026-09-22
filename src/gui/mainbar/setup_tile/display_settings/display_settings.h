@@ -32,5 +32,11 @@
      * @return  tile number
      */
     uint32_t display_get_setup_tile_num( void );
+    /**
+     * @brief keep the BG image dropdown in step with display config
+     *
+     * @param background_image  dropdown index, 5 is /spiffs/bg.png
+     */
+    void display_settings_select_background( uint32_t background_image );
 
 #endif // _DISPLAY_SETTINGS_H

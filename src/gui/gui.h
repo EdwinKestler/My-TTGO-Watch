@@ -30,7 +30,7 @@
     /**
      * @brief set the background
      * 
-     * @param   background_image    background image index 0...4
+     * @param   background_image    0..3 built-in, 4 hidden, 5 /spiffs/bg.png
      */
     void gui_set_background_image ( uint32_t background_image);
     /**

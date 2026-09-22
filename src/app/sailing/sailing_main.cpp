@@ -191,6 +191,29 @@ void sailing_activate_cb( void ) {
     }
 }
 
+static uint32_t sailing_saved_display_timeout = 15;
+static bool sailing_display_timeout_saved = false;
+
+void sailing_set_display_always_on( bool enable ) {
+    if ( enable ) {
+        if ( !sailing_display_timeout_saved ) {
+            sailing_saved_display_timeout = display_get_timeout();
+            sailing_display_timeout_saved = true;
+        }
+        display_set_timeout( 300 );
+    }
+    else {
+        sailing_restore_display_timeout();
+    }
+}
+
+void sailing_restore_display_timeout( void ) {
+    if ( sailing_display_timeout_saved ) {
+        display_set_timeout( sailing_saved_display_timeout );
+        sailing_display_timeout_saved = false;
+    }
+}
+
 void sailing_hibernate_cb( void ) {
     SAILING_INFO_LOG("exit sailing app");
     /**
@@ -201,6 +224,7 @@ void sailing_hibernate_cb( void ) {
      * disable udp listner
      */
     sailing_app_setup_udp( false );
+    sailing_restore_display_timeout();
 }
 
 bool sailing_wifictl_event_cb( EventBits_t event, void *arg ) {
@@ -284,8 +308,8 @@ static void enter_sailing_setup_event_cb( lv_obj_t * obj, lv_event_t event ) {
 
 static void exit_sailing_main_event_cb( lv_obj_t * obj, lv_event_t event ) {
     switch( event ) {
-        case( LV_EVENT_CLICKED ):       mainbar_jump_back();
-                                        display_set_timeout( 15 );
+        case( LV_EVENT_CLICKED ):       sailing_restore_display_timeout();
+                                        mainbar_jump_back();
                                         break;
     }
 }

@@ -267,3 +267,9 @@ static void display_background_image_setup_event_cb( lv_obj_t * obj, lv_event_t 
 uint32_t display_get_setup_tile_num( void ) {
     return ( display_tile_num_1 );
 }
+
+void display_settings_select_background( uint32_t background_image ) {
+    if ( display_bg_img_list != NULL ) {
+        lv_dropdown_set_selected( display_bg_img_list, background_image );
+    }
+}

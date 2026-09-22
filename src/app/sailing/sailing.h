@@ -30,3 +30,5 @@
     uint32_t sailing_get_app_main_tile_num( void );
 
 extern bool tracking;
+    void sailing_set_display_always_on( bool enable );
+    void sailing_restore_display_timeout( void );

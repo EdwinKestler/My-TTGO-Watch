@@ -111,6 +111,8 @@ static volatile bool osmmap_block_return_maintile = false;      /** @brief osm b
 static volatile bool osmmap_block_show_messages = false;        /** @brief osm show messages state store */
 static volatile bool osmmap_block_watchface = false;            /** @brief osm statusbar force dark mode state store */
 static volatile bool osmmap_gps_state = false;                  /** @brief osm gps state on enter osmmap */
+static volatile bool osmmap_started_gps = false;                /** @brief true when this app powered the GPS on */
+static volatile bool osmmap_started_wifi = false;               /** @brief true when this app powered Wi-Fi on */
 static volatile bool osmmap_gps_on_standby_state = false;       /** @brief osm gps on standby on enter osmmap */
 static volatile bool osmmap_wifi_state = false;                 /** @brief osm wifi state on enter osmmap */
 static volatile uint64_t last_touch = 0;
@@ -533,35 +535,24 @@ void osmmap_load_ahead_Task( void * pvParameters ) {
     OSMMAP_APP_INFO_LOG("start osm map load ahead background task, heap: %d", ESP.getFreeHeap() );
     osmmap_ahead_alive = true;
     while( true ) {
-        /**
-         * check for  load ahead request
-         */
-        if ( xEventGroupGetBits( osmmap_event_handle ) & OSM_APP_LOAD_AHEAD_REQUEST ) {
-            /**
-             * check if load ahead need or finsh
-             */
+        EventBits_t bits = xEventGroupWaitBits( osmmap_event_handle,
+                                                 OSM_APP_LOAD_AHEAD_REQUEST | OSM_APP_TASK_EXIT_REQUEST,
+                                                 pdFALSE,
+                                                 pdFALSE,
+                                                 pdMS_TO_TICKS( 500 ) );
+        if ( bits & OSM_APP_TASK_EXIT_REQUEST ) {
+            break;
+        }
+        if ( bits & OSM_APP_LOAD_AHEAD_REQUEST ) {
             OSMMAP_APP_LOG("start load ahead update handler");
             xEventGroupClearBits( osmmap_event_handle, OSM_APP_LOAD_AHEAD_REQUEST );
             while ( osm_map_load_tiles_ahead( osmmap_location ) ) {
                 if ( xEventGroupGetBits( osmmap_event_handle ) & OSM_APP_TASK_EXIT_REQUEST ) {
                     break;
                 }
-                /**
-                 * block this task for 125ms
-                 */
-                vTaskDelay( 25 );
+                vTaskDelay( pdMS_TO_TICKS( 50 ) );
             }
         }
-        /**
-         * check if for a task exit request
-         */
-        if ( xEventGroupGetBits( osmmap_event_handle ) & OSM_APP_TASK_EXIT_REQUEST ) {
-            break;
-        }
-        /**
-         * block this task for 125ms
-         */
-        vTaskDelay( 25 );
     }
     OSMMAP_APP_INFO_LOG("finsh osm map load ahead background task, heap: %d", ESP.getFreeHeap() );
     osmmap_ahead_alive = false;
@@ -606,10 +597,19 @@ void osmmap_update_Task( void * pvParameters ) {
     OSMMAP_APP_INFO_LOG("start osm map tile background update task, heap: %d", ESP.getFreeHeap() );
     osmmap_update_alive = true;
     while( true ) {
+        EventBits_t bits = xEventGroupWaitBits( osmmap_event_handle,
+                                                 OSM_APP_UPDATE_REQUEST | OSM_APP_TASK_EXIT_REQUEST,
+                                                 pdFALSE,
+                                                 pdFALSE,
+                                                 pdMS_TO_TICKS( 500 ) );
+        if ( bits & OSM_APP_TASK_EXIT_REQUEST ) {
+            OSMMAP_APP_INFO_LOG("stop osm map update task");
+            break;
+        }
         /**
          * check if a tile image update is requested
          */
-        if ( xEventGroupGetBits( osmmap_event_handle ) & OSM_APP_UPDATE_REQUEST ) {
+        if ( bits & OSM_APP_UPDATE_REQUEST ) {
             /**
              * check if a tile image update is required and update them
              */
@@ -643,17 +643,6 @@ void osmmap_update_Task( void * pvParameters ) {
              */
             xEventGroupClearBits( osmmap_event_handle, OSM_APP_UPDATE_REQUEST );
         }
-        /**
-         * check if for a task exit request
-         */
-        if ( xEventGroupGetBits( osmmap_event_handle ) & OSM_APP_TASK_EXIT_REQUEST ) {
-            OSMMAP_APP_INFO_LOG("stop osm map update task");
-            break;
-        }
-        /**
-         * block this task for 125ms
-         */
-        vTaskDelay( 25 );
     }
     OSMMAP_APP_INFO_LOG("finsh osm map tile background update task, heap: %d", ESP.getFreeHeap() );
     osmmap_update_alive = false;
@@ -850,14 +839,22 @@ void osmmap_activate_cb( void ) {
      * save block show messages state
      */
     osmmap_gps_state = gpsctl_get_autoon();
+    osmmap_started_gps = false;
     if( osmmap_config.gps_autoon ) {
+        if ( !osmmap_gps_state ) {
+            osmmap_started_gps = true;
+        }
         gpsctl_on();
     }
     /**
      * save block show messages state
      */
     osmmap_wifi_state = wifictl_get_autoon();
+    osmmap_started_wifi = false;
     if( osmmap_config.wifi_autoon ) {
+        if ( !osmmap_wifi_state ) {
+            osmmap_started_wifi = true;
+        }
         wifictl_on();
         wifictl_set_autoon( osmmap_config.wifi_autoon );
     }
@@ -938,7 +935,15 @@ void osmmap_hibernate_cb( void ) {
      */
     blectl_set_show_notification( osmmap_block_show_messages );
     display_set_block_return_maintile( osmmap_block_return_maintile );
+    if ( osmmap_started_gps ) {
+        gpsctl_off();
+        osmmap_started_gps = false;
+    }
     gpsctl_set_autoon( osmmap_gps_state );
+    if ( osmmap_started_wifi ) {
+        wifictl_off();
+        osmmap_started_wifi = false;
+    }
     wifictl_set_autoon( osmmap_wifi_state );
     gpsctl_set_enable_on_standby( osmmap_gps_on_standby_state );
 #ifdef NATIVE_64BIT

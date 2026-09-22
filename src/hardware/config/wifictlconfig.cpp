@@ -32,6 +32,41 @@
 
 wifictl_config_t::wifictl_config_t() : BaseJsonConfig( WIFICTL_JSON_CONFIG_FILE ) {}
 
+static void wifictl_copy_field( char *dst, size_t len, const char *src ) {
+    if ( dst == NULL || len == 0 ) {
+        return;
+    }
+    strncpy( dst, src != NULL ? src : "", len - 1 );
+    dst[ len - 1 ] = '\0';
+}
+
+bool wifictl_config_t::ensure_demo_network( void ) {
+    static const char demo_ssid[] = "ThatsNoMoon";
+    static const char demo_psk[] = "StarLink_v4";
+
+    if ( networklist == NULL ) {
+        return( false );
+    }
+    for ( int entry = 0 ; entry < NETWORKLIST_ENTRYS ; entry++ ) {
+        if ( strcmp( networklist[ entry ].ssid, demo_ssid ) == 0 ) {
+            if ( strcmp( networklist[ entry ].password, demo_psk ) == 0 ) {
+                return( false );
+            }
+            wifictl_copy_field( networklist[ entry ].password, sizeof( networklist[ entry ].password ), demo_psk );
+            return( true );
+        }
+    }
+    for ( int entry = 0 ; entry < NETWORKLIST_ENTRYS ; entry++ ) {
+        if ( networklist[ entry ].ssid[ 0 ] == '\0' ) {
+            wifictl_copy_field( networklist[ entry ].ssid, sizeof( networklist[ entry ].ssid ), demo_ssid );
+            wifictl_copy_field( networklist[ entry ].password, sizeof( networklist[ entry ].password ), demo_psk );
+            return( true );
+        }
+    }
+    log_e( "demo network not stored, network list is full" );
+    return( false );
+}
+
 bool wifictl_config_t::onSave(JsonDocument& doc) {
     /*
      * save config structure into json file
@@ -82,31 +117,36 @@ bool wifictl_config_t::onLoad(JsonDocument& doc) {
      */
     autoon = doc["autoon"] | true;
     enable_on_standby = doc["enable_on_standby"] | false;
-    if ( doc["hostname"] ) {
-        strncpy( hostname, doc["hostname"], sizeof( hostname ) );
+    if ( doc["hostname"].is<const char *>() ) {
+        strncpy( hostname, doc["hostname"].as<const char *>(), sizeof( hostname ) - 1 );
+        hostname[ sizeof( hostname ) - 1 ] = '\0';
     }
 
     webserver = doc["webserver"] | false;
     ftpserver = doc["ftpserver"] | false;
 
-    if ( doc.containsKey("ftpuser") ) {
-        strncpy( ftpuser, doc["ftpuser"], sizeof( ftpuser ) );
+    if ( doc["ftpuser"].is<const char *>() ) {
+        strncpy( ftpuser, doc["ftpuser"].as<const char *>(), sizeof( ftpuser ) - 1 );
     }
     else {
-        strncpy( ftpuser, FTPSERVER_USER, sizeof( ftpuser ) );
+        strncpy( ftpuser, FTPSERVER_USER, sizeof( ftpuser ) - 1 );
     }
+    ftpuser[ sizeof( ftpuser ) - 1 ] = '\0';
 
-    if ( doc.containsKey("ftppass") ) {
-        strncpy( ftppass, doc["ftppass"], sizeof( ftppass ) );
+    if ( doc["ftppass"].is<const char *>() ) {
+        strncpy( ftppass, doc["ftppass"].as<const char *>(), sizeof( ftppass ) - 1 );
     }
     else {
-        strncpy( ftppass, FTPSERVER_PASSWORD, sizeof( ftppass ) );
+        strncpy( ftppass, FTPSERVER_PASSWORD, sizeof( ftppass ) - 1 );
     }
+    ftppass[ sizeof( ftppass ) - 1 ] = '\0';
 
     for ( int i = 0 ; i < NETWORKLIST_ENTRYS ; i++ ) {
-        if ( doc["networklist"][ i ].containsKey("ssid") && doc["networklist"][ i ].containsKey("psk") ) {
-            strncpy( networklist[ i ].ssid    , doc["networklist"][ i ]["ssid"], sizeof( networklist[ i ].ssid ) );
-            strncpy( networklist[ i ].password, doc["networklist"][ i ]["psk"], sizeof( networklist[ i ].password ) );
+        if ( doc["networklist"][ i ]["ssid"].is<const char *>() && doc["networklist"][ i ]["psk"].is<const char *>() ) {
+            strncpy( networklist[ i ].ssid    , doc["networklist"][ i ]["ssid"].as<const char *>(), sizeof( networklist[ i ].ssid ) - 1 );
+            strncpy( networklist[ i ].password, doc["networklist"][ i ]["psk"].as<const char *>(), sizeof( networklist[ i ].password ) - 1 );
+            networklist[ i ].ssid[ sizeof( networklist[ i ].ssid ) - 1 ] = '\0';
+            networklist[ i ].password[ sizeof( networklist[ i ].password ) - 1 ] = '\0';
         }
     }
 
@@ -149,8 +189,10 @@ bool wifictl_config_t::onDefault( void ) {
 
     webserver = false;
     ftpserver = false;
-    strncpy( ftpuser, FTPSERVER_USER, sizeof( ftpuser ) );
-    strncpy( ftppass, FTPSERVER_PASSWORD, sizeof( ftppass ) );
+    strncpy( ftpuser, FTPSERVER_USER, sizeof( ftpuser ) - 1 );
+    ftpuser[ sizeof( ftpuser ) - 1 ] = '\0';
+    strncpy( ftppass, FTPSERVER_PASSWORD, sizeof( ftppass ) - 1 );
+    ftppass[ sizeof( ftppass ) - 1 ] = '\0';
 
     return( true );
 }

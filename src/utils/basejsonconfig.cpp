@@ -41,12 +41,9 @@ BaseJsonConfig::BaseJsonConfig(const char* configFileName) {
     filepath_convert( fileName, sizeof( fileName ), localpath );
 #else
     if (configFileName[0] == '/')
-        strncpy( fileName, configFileName, MAX_CONFIG_FILE_NAME_LENGTH);
+        snprintf( fileName, sizeof( fileName ), "%s", configFileName );
     else
-    {
-        fileName[0] = '/';
-        strncpy(fileName+1, configFileName, MAX_CONFIG_FILE_NAME_LENGTH);
-    }
+        snprintf( fileName, sizeof( fileName ), "/%s", configFileName );
 #endif
 }
 

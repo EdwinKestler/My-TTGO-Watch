@@ -358,7 +358,7 @@ void timesync_get_current_datestring( char * buf, size_t buf_len ) {
     time( &now );
     localtime_r( &now, &info );
 
-    strftime( buf, sizeof( buf_len ), "%a %d.%b %Y", &info );
+    strftime( buf, buf_len, "%a %d.%b %Y", &info );
 }
 
 bool timesync_is_between( struct tm start, struct tm end ) {

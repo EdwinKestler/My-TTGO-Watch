@@ -470,13 +470,13 @@ static void statusbar_pmuctl_update_batt( int32_t percent, bool charging, bool p
     if ( !plug ) {
         if ( percent >= 75 ) { 
             lv_img_set_src( statusicon[ STATUSBAR_BATTERY ].icon, LV_SYMBOL_BATTERY_FULL );
-        } else if( percent >=50 && percent < 74) {
+        } else if( percent >= 50 ) {
             lv_img_set_src( statusicon[ STATUSBAR_BATTERY ].icon, LV_SYMBOL_BATTERY_3 );
-        } else if( percent >=35 && percent < 49) {
+        } else if( percent >= 35 ) {
             lv_img_set_src( statusicon[ STATUSBAR_BATTERY ].icon, LV_SYMBOL_BATTERY_2 );
-        } else if( percent >=15 && percent < 34) {
+        } else if( percent >= 15 ) {
             lv_img_set_src( statusicon[ STATUSBAR_BATTERY ].icon, LV_SYMBOL_BATTERY_1 );
-        } else if( percent >=0 && percent < 14) {
+        } else {
             lv_img_set_src( statusicon[ STATUSBAR_BATTERY ].icon, LV_SYMBOL_BATTERY_EMPTY );
         }
 

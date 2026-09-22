@@ -171,7 +171,8 @@ static void wifimon_hibernate_cb( void ) {
 #ifdef NATIVE_64BIT
 
 #else
-    esp_wifi_set_promiscuous( false ); 
+    esp_wifi_set_promiscuous( false );
+    esp_wifi_stop();
 #endif
     wifictl_off();
     /**
@@ -209,7 +210,7 @@ static void wifimon_activate_cb( void ) {
      * save display timeout time
      */
     wifimon_display_timeout = display_get_timeout();
-    display_set_timeout( DISPLAY_MAX_TIMEOUT );
+    display_set_timeout( 60 );
 }
 
 static void wifimon_app_task( lv_task_t * task ) {
